@@ -1,0 +1,31 @@
+<odoo> 
+    <record id="view_etl_list" model="ir.ui.view">
+        <field name="name">etl.model.list</field>
+        <field name="model">etl.model</field>
+        <field name="arch" type="xml">
+            <tree string="ETL Models">
+                <field name="name"/>
+                <field name="odoo_name" />
+                <field name="unique_identifier_tuple" />
+                <field name="elapsed_time_import" />
+                <field name="last_import" />
+                <field name="total_imported_rec"/>
+                <field name="updated_imported_rec"/>
+                <field name="new_imported_rec" />
+                <field name="arguments" />
+                <button name="call_model_import" type="object" string="Import Records" class="oe_highlight"/>
+                <button name="call_model_export" type="object" string="Export Records" class="oe_highlight"/>
+            </tree>
+        </field>
+    </record>
+ 
+    <record id="action_etl_model" model="ir.actions.act_window">
+        <field name="name">Default ETL Models Action</field>
+        <field name="res_model">etl.model</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+
+    
+    
+</odoo>

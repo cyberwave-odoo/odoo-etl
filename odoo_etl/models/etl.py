@@ -1,0 +1,653 @@
+from odoo import _, api, fields, models
+import time
+from datetime import datetime
+import logging
+from sqlalchemy import create_engine, text
+import polars as pl
+
+import warnings
+warnings.filterwarnings("ignore", category=pl.exceptions.MapWithoutReturnDtypeWarning)
+warnings.filterwarnings("ignore", category=pl.exceptions.PolarsInefficientMapWarning)
+
+_logger = logging.getLogger(__name__)
+
+        
+class ETLModel(models.Model):
+    _name = 'etl.model'
+    _description = 'ETL Model'
+    
+
+
+    name = fields.Char(string='EPFC Table Name', required=True)
+    odoo_name = fields.Char(string='Odoo Table Name')
+    
+    field_mapping = fields.Text('Field Mapping')
+    arguments = fields.Text('Arguments')
+    
+    last_import = fields.Datetime('Last Import')
+    last_export = fields.Datetime('Last Export')
+    
+    elapsed_time_import = fields.Char('Job import Duration (s)')
+    elapsed_time_export = fields.Char('Job export Duration (s)')
+    
+    total_imported_rec = fields.Integer('Total Imported')
+    new_imported_rec = fields.Integer('New Imported')
+    updated_imported_rec = fields.Integer('Updated Imported')
+    
+    unique_identifier_tuple = fields.Char('Unique identifier Tuple')
+    
+    
+    remove_condition = fields.Char('Remove Condition')
+    
+    bulk_import = fields.Boolean('Bulk Import', default = False)
+    
+    custom_import = fields.Boolean('Custom Import', default = False)
+    
+    pre_exec = fields.Boolean('Pre Execution', default = False)
+    
+    
+    def systematic_import(self):
+        return {}
+
+    @api.model
+    def create(self, vals_list):
+        if isinstance(vals_list, list):
+            for vals in vals_list:
+                if 'odoo_name' in vals and isinstance(vals['odoo_name'], str):
+                    vals['odoo_name'] = vals['odoo_name'].strip()
+                if 'name' in vals and isinstance(vals['name'], str):
+                    vals['name'] = vals['name'].strip()
+        else:
+            if 'odoo_name' in vals_list and isinstance(vals_list['odoo_name'], str):
+                vals_list['odoo_name'] = vals_list['odoo_name'].strip()
+            if 'name' in vals_list and isinstance(vals_list['name'], str):
+                vals_list['name'] = vals_list['name'].strip()
+
+        return super(ETLModel, self).create(vals_list)
+    
+    
+    
+    def call_model_import(self):
+        self.ensure_one()
+        _logger.info(self.name)
+        _logger.info("Import record for %s", str(self.name))
+        
+        try:
+            self.odoo_name = self.odoo_name.strip()
+            self.import_table_records()
+        except Exception as e:
+            _logger.error("An error occurred while importing %s", self.name)
+            raise e
+    
+    def call_model_export(self):
+        self.ensure_one()
+        _logger.info(self.name)
+        _logger.info("Export record for %s", str(self.name))
+        
+        try:
+            self.odoo_name = self.odoo_name.strip()
+            self.export_table_records()
+        except Exception as e:
+            _logger.error("An error occurred while exporting %s: %s", self.name, e)
+            raise
+            
+    def import_table_records(self,**kwargs):
+        if not self.odoo_name or not self.name:
+            _logger.info("Model not found")
+            raise 
+        _logger.info("Start import odoo: %s and external: %s", self.odoo_name, self.name)
+
+        start = time.time()
+
+        
+        kwargs = self.systematic_import()
+        
+    
+        total_records, new_records, updated_records = 0, 0, 0
+        last_import_time = fields.datetime.now()
+        
+        if self.pre_exec: 
+            _logger.info("Sart pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
+            self.env[self.odoo_name].pre_exec(**kwargs)
+            _logger.info("End pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
+        if self.custom_import:
+            _logger.info("Sart custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
+            self.env[self.odoo_name].custom_import()
+            _logger.info("End custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
+        else:      
+            try:     
+                data = self.execute_query("SELECT * FROM " + self.name.strip() + ";", (), metadata=True)
+            except Exception as e:
+                _logger.error("An error occurred, make sure you have imported the ETL models: %s", str(e))
+                raise e
+            data.columns = [col.lower() for col in data.columns]
+
+        
+
+            field_mapping = eval(self.field_mapping)
+
+            unique_identifier_tuple = eval(self.unique_identifier_tuple)
+
+            if self.remove_condition:
+                data = data.filter(eval(self.remove_condition)).clone()
+
+
+            
+            if self.arguments :
+                for option in self.arguments.split("|"):
+                    try:
+                        key, value = option.strip().split(" = ")
+                    except ValueError:
+                        _logger.error("An error occurred while parsing argument '%s' of %s", option, self.name)
+                    except SyntaxError:
+                        _logger.error("A syntax error occurred while evaluating argument '%s' for %s", option, self.name)
+                    except Exception as e:
+                        _logger.error("An unexpected error occurred: %s", str(e))
+                        raise e
+                    kwargs[key.strip()] = eval(value)
+
+            _logger.info("Model %s is using the following arguments %s", self, str(kwargs) )
+            
+            kwargs['start_time'] = start
+            
+            total_records, new_records, updated_records = self.import_records(data, unique_identifier_tuple, field_mapping, **kwargs)
+            
+
+        end = time.time()
+        
+        duration = end-start
+        
+        self.write({
+                'elapsed_time_import': duration,
+                'last_import': last_import_time,
+                'total_imported_rec': total_records,
+                'new_imported_rec': new_records,
+                'updated_imported_rec': updated_records,
+            })
+
+        _logger.info("Total time= %s seconds for %s records", duration, str(total_records) )    
+        self.env.cr.commit()
+        
+    @api.model
+    def get_schema(self):
+        schema = {}
+        field_mapping = eval(self.field_mapping)
+        for name, options in field_mapping.items():
+            for key, option in options.items():
+                schema[name] = option if key == 'data_type' else None
+        return schema
+    @api.model
+    def get_sqlit_column_types(self, dbsource):
+        data = dbsource.execute_sqlite(text(f"PRAGMA table_info({self.name});"), (), metadata=False)[0]
+        utils = self.env['polars.sql.type.mapper']
+        column_types = {row[1]: utils._get_polars_type(row[2]) for row in data}
+        return column_types
+        
+    @api.model
+    def execute_query(self, sql_query, sql_params, metadata=True, sqlite_guess=True):
+        
+        dbsource = self.env['base.external.dbsource'].search([('name', '=', 'SQLite Prod')], limit=1)
+        """Fetches all records from the adequate table."""
+        try:
+            offset = 0
+            all_batches = []
+            batch_size = 25000
+            while True:
+                # Modify SQL query to support batching with OFFSET and LIMIT
+                if 'select' in sql_query.lower().split()[0]:
+                    adapted_sql = f"{sql_query.replace(';', '')} LIMIT {batch_size} OFFSET {offset};"
+                else:
+                    adapted_sql = sql_query
+                # Execute the SQL query
+                data, cols = dbsource.execute_sqlite(text(adapted_sql), sql_params, metadata)
+
+                # Break the loop if no more records are found
+                if not data:
+                    break
+                
+                if metadata:
+                    # Process batch into Polars DataFrame
+                    datarray = [list(tuple_item) for tuple_item in data]
+
+                    if sqlite_guess:
+                        schema = self.get_sqlit_column_types(dbsource)
+
+                        batch_df = pl.DataFrame(datarray, schema=schema, orient="row", infer_schema_length=batch_size)
+                    else:
+                        batch_df = pl.DataFrame(datarray, schema=cols, orient="row", infer_schema_length=batch_size)
+                    all_batches.append(batch_df)
+
+                # Move to the next batch
+                offset += batch_size
+
+            # Fix columns with Null dtype across all_batches
+            if metadata and all_batches:
+                for col_idx, col_name in enumerate(all_batches[0].columns):
+                    if all_batches[0].dtypes[col_idx] == pl.Null:
+                        for other_batch in all_batches:
+                            if col_name in other_batch.columns and other_batch.dtypes[col_idx] != pl.Null:
+                                target_dtype = other_batch.dtypes[col_idx]
+                                for i, batch in enumerate(all_batches):
+                                    all_batches[i] = batch.with_columns(
+                                        pl.col(col_name).cast(target_dtype)
+                                    )
+                                break
+
+            # Concatenate all batches into a single DataFrame
+            if metadata:
+                if len(all_batches) == 0:
+                    raise ValueError(f"{self.name}:{self.odoo_name} might be empty in the")
+                final_df = pl.concat(all_batches)
+                return final_df
+            else:
+                return
+
+        except Exception as e:
+            _logger.error("An error occurred while fetching %s", sql_query)
+            raise e
+        
+    @api.model
+    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=30000):
+        """
+        Load records in batches of a specified size and process them.
+        
+        Args:
+            self: Odoo environment object.
+            odoo_name: The name of the Odoo model.
+            odoo_columns: List of columns to fetch from the model.
+            batch_size: Number of records to fetch per batch.
+
+        Returns:
+            Polars DataFrame containing all records.
+        """
+        offset = 0          # Initialize offset
+        all_batches = []    # List to store batches
+        
+        fields_info = self.env[odoo_name].fields_get(odoo_columns)
+        boolean_fields = [field for field, info in fields_info.items() if info['type'] == 'boolean']
+        tuple_fields = [field for field, info in fields_info.items() if info['type'] == 'many2many']
+        int_fields = [field for field, info in fields_info.items() if info['type'] == 'integer'] 
+        many2one_fields = [field for field, info in fields_info.items() if info['type'] == 'many2one'] 
+        date_fields = [field for field, info in fields_info.items() if info['type'] == 'date'] 
+
+        while True:
+            # Fetch records in batches using offset and limit
+            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
+            
+            # Break loop if no more records are found
+            if not current_data_records:
+                break
+
+            # Process the first record to identify tuple fields
+            first_record = current_data_records[0]
+            tuple_fields = [key for key, value in first_record.items() if isinstance(value, tuple)]
+
+            # Process records to replace False values in tuple fields with None
+            for record in current_data_records:
+                for field in tuple_fields + many2one_fields +date_fields:
+                    if record[field] is False:
+                        record[field] = None
+
+            # Convert the batch into a Polars DataFrame
+            
+            batch_df = pl.DataFrame(current_data_records, strict=False, infer_schema_length=batch_size)
+            all_batches.append(batch_df)
+
+            # Move to the next batch
+            offset += batch_size
+            
+        if len(all_batches) == 0:
+            return pl.DataFrame()
+        
+        # Concatenate all batches into a single DataFrame
+        final_dataframe = pl.concat(all_batches)
+        # Return the processed dataframe
+        return final_dataframe
+    
+    @api.model
+    def import_records(self, data, unique_identifier_tuple, field_mapping, **kwargs):
+        """
+        Generic function to import records into any Odoo model.
+
+        :param data: A Polars DataFrame containing the data to import.
+        :param unique_identifier_tuple: The field name tuple used to check if the record already exists with format : 
+                                        (odoo_table_index, legacy_table_index) or 
+                                        (odoo_table_index, (legacy_table_index_1, legacy_table_index_2, ...)).
+        :param field_mapping: A dictionary mapping Odoo field names to DataFrame column names.
+        :param kwargs: It is a dict of potential new arguments that can be added and used by the field_mapping.
+        """
+
+        # Unpack the unique identifier tuple
+        odoo_unique_identifier, unique_identifier = unique_identifier_tuple
+
+        # Check if unique_identifier is a tuple
+        if isinstance(unique_identifier, tuple):
+            # Concatenate the columns corresponding to the legacy indexes
+            data = data.with_columns(
+                pl.concat_str(data[list(unique_identifier)], separator='-').alias('external_id')
+            )
+            unique_identifier = 'external_id'
+
+        df = data.select(unique_identifier).clone()
+        odoo_columns = []
+
+        for odoo_field, mapping in field_mapping.items():
+            odoo_columns.append(odoo_field)
+            _logger.info(f"Mapping type for field '{odoo_field}': {mapping}")
+            if mapping['type'] == 'column':
+                # If it's a string, we assume it's a direct mapping to a DataFrame column
+                if mapping['column_name'] in data.columns:
+                    if "data_type" in mapping:
+                        df = df.with_columns(data[mapping['column_name']].cast(eval(mapping['data_type'])).alias(odoo_field))
+                    else :
+                        df = df.with_columns(data[mapping['column_name']].alias(odoo_field))
+                else:
+                    raise ValueError(f"Column '{mapping}' not found in the data.")
+            elif mapping['type'] == 'lambda':
+                df = df.with_columns(
+                        data.select([
+                            pl.struct(pl.all()).map_elements(
+                                lambda row: mapping['function'](self, row, **kwargs),  # The mapping function
+                            ).alias(odoo_field)  # Alias for the new column
+                        ]).to_series())
+                
+                if "data_type" in mapping:
+                    if mapping['data_type'] == 'pl.Datetime':
+                        df = df.with_columns(
+                                pl.col(odoo_field).str.to_datetime("%Y-%m-%d %H:%M:%S"))
+                    else :
+                        df = df.with_columns(
+                                pl.col(odoo_field).cast(eval(mapping['data_type'])))
+                    
+            elif mapping['type'] == 'object_lambda':
+                df = df.with_columns(
+                        data.select([
+                            pl.struct(pl.all()).map_elements(
+                                lambda row: mapping['function'](self, row, **kwargs),  # The mapping function
+                                return_dtype=pl.Object
+                            ).alias(odoo_field)  # Alias for the new column
+                        ]).to_series()
+                    )
+            elif mapping['type'] == 'join':
+                lookup_data = self.env[mapping['lookup_table']].search([])
+                right_on = mapping['right_on']
+                left_on = mapping['left_on']
+                
+                join_colum_name = 'join_column_odoo'
+                lookup_colum_name = 'lookup_colum_name'
+                new_column_name = 'new_column_name'
+                
+                lookup_table = pl.DataFrame([{
+                                    join_colum_name: getattr(rec, right_on),
+                                    lookup_colum_name:  getattr(rec, mapping['model_field']).id if "model_field" in mapping else rec.id
+                                } for rec in lookup_data])
+                
+
+                data_copy = data.select(left_on).clone().rename({left_on : new_column_name})
+                df = df.with_columns(data_copy.select(new_column_name))
+
+                if "data_type" in mapping:
+                    df = df.with_columns(
+                            pl.col(new_column_name).cast(eval(mapping['data_type']))
+                        )
+                df = df.join(
+                        lookup_table, 
+                        left_on=new_column_name, 
+                        right_on=join_colum_name, 
+                        how="left"
+                    ).with_columns(pl.col(lookup_colum_name).alias(odoo_field)).drop([new_column_name, lookup_colum_name])
+
+                
+                if 'filter_right' in mapping:
+                    df = df.filter(pl.col(odoo_field).is_not_null())
+
+            elif mapping['type'] == 'user_group':
+                pass
+                
+            else:
+                _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")        
+        filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier)
+        
+        _logger.info(filtered_df)
+        # Convert data to a list of dictionaries
+        record_dicts = filtered_df.to_dicts()
+        
+        identifiers = [record[unique_identifier] for record in record_dicts if record[unique_identifier]]
+        existing_records = self.env[self.odoo_name].search_read([(odoo_unique_identifier, 'in', identifiers)], [odoo_unique_identifier], order='id')
+        existing_records_dict = {str(record[odoo_unique_identifier]): record['id'] for record in existing_records}
+
+        drop_unique_id = unique_identifier not in self.env[self.odoo_name].fields_get()
+
+        # Prepare bulk data
+        records_to_create = []
+        records_to_update = []
+        
+        for record in record_dicts:
+            if not record[unique_identifier]:
+                _logger.warning(f"Skipping a record because it has no {unique_identifier}: %s", record)
+            record_vals = {key: val for key, val in record.items() if key != unique_identifier} if drop_unique_id else {key: val for key, val in record.items()}
+            if str(record[unique_identifier]) in existing_records_dict:
+                # Prepare update data
+                records_to_update.append((existing_records_dict[str(record[unique_identifier])], record_vals))
+            else:
+                # Prepare create data
+                records_to_create.append(record_vals)
+
+        # Bulk create and write operations
+        _logger.info("Time to prepare data= %s seconds", time.time() - kwargs['start_time'])
+        
+        failed_create = 0
+        failed_update = 0
+        _logger.info(f"Start ORM Import")
+        # Handling record creation (attempt batch creation first)
+        if records_to_create:
+            record_by_record = True
+            if self.bulk_import:
+                if self.create_records_in_batch(records_to_create):
+                    record_by_record = False
+                        
+            if record_by_record:
+                # Batch creation failed, attempt individual creation
+                max_exceptions = 400
+                for record in records_to_create:
+                    success, max_exceptions = self.create_record(record, max_exceptions)
+                    if not success:
+                        failed_create += 1
+                    if max_exceptions == 0:
+                        _logger.error("Maximum number of exceptions reached during record creation.")
+                        break
+
+        # Handling record updates individually
+        for record_id, values in records_to_update:
+
+            if not self.update_record(record_id, values):
+                
+                failed_update += 1
+
+        return len(df), len(records_to_create) - failed_create, len(records_to_update) - failed_update 
+
+    def create_record(self, record, max_exceptions):
+        try:
+            with self.env.cr.savepoint():
+                self.env[self.odoo_name].with_context(tracking_disable=True).create(record)
+                
+        except Exception as ex:
+            _logger.error(f"Error details: {ex}")
+
+            return False, max_exceptions - 1  # Reduce exception count
+        return True, max_exceptions  # Creation successful, no reduction in exceptions
+
+    # Function to handle batch record creation
+    def create_records_in_batch(self, records):
+        try:
+            with self.env.cr.savepoint():
+                self.env[self.odoo_name].with_context(tracking_disable=True).create(records)
+
+                return True
+        except Exception as ex:
+
+            _logger.error(f"Batch creation failed for records")
+            _logger.error(f"Error details: {ex}")
+            return False
+
+    # Function to handle individual record updates with error tracking
+    def update_record(self, record_id, values):
+        try:
+            with self.env.cr.savepoint():
+                self.env[self.odoo_name].browse(record_id).with_context(tracking_disable=True).write(values)
+
+        except Exception as ex:
+            _logger.error(f"Error details: {ex}")
+
+            return False
+        return True
+
+    def odoo_to_polars(self, odoo_df, col):
+        odoo_to_polars_type_map = {
+            'integer': pl.Int64,
+            'float': pl.Float64,
+            'char': pl.Utf8,
+            'text': pl.Utf8,
+            'boolean': pl.Boolean,
+            'datetime': pl.Datetime,
+            'date': pl.Date,
+            'many2one': pl.Int64,  
+        }
+        
+        field_info = self.env[self.odoo_name].fields_get([col])
+        field_type = field_info[col]['type']
+        if field_type not in ['boolean', 'selection']:
+            odoo_df = odoo_df.with_columns(
+                        pl.col(col).cast(odoo_to_polars_type_map[field_type]).alias(col)
+                    )
+        return odoo_df
+   
+    def remove_false(self,df):
+        return df.with_columns(pl.col(pl.String).replace("false", None))
+             
+    def hash_compare(self, dataframe, odoo_columns, unique_identifier, odoo_unique_identifier):
+
+        current_data_df = self.load_records_in_batches(self.odoo_name, odoo_columns)
+
+        if current_data_df.is_empty():
+            return dataframe
+        
+        # serch_read return "false" for null value in sql, this fixes it.
+        current_data_df = self.remove_false(current_data_df)
+        
+        # Polars insert null value that are interpreted by 0 in odoo when record is created 
+        dataframe = dataframe.with_columns(pl.col(pl.Int64).replace(None, False))
+        
+        # Check if current_data_df or dataframe are empty
+        if current_data_df.is_empty() or dataframe.is_empty():
+            # If either is empty, skip hashing and filtering
+            _logger.warning("No records to compare or DataFrame is empty.")
+            return dataframe
+        else:
+            # Set the object colmun in order to make sure to be able to use them
+            object_column = []
+            if any( dtype == pl.Object for dtype in dataframe.dtypes):
+                def format_list_to_object(lst):
+                    return [(6, 0, lst.to_list())]
+                
+                object_column = dataframe.select(pl.col(pl.Object)).columns[0]
+                current_data_df = current_data_df.with_columns(
+                    pl.col(object_column)
+                    .map_elements(format_list_to_object, return_dtype=pl.Object)
+                )    
+            
+            if unique_identifier == 'id':
+                current_data_df = current_data_df.rename({odoo_unique_identifier : 'unique_identifier'})
+                dataframe = dataframe.rename({unique_identifier : 'unique_identifier'})
+                odoo_columns[odoo_columns.index(odoo_unique_identifier)] = 'unique_identifier'
+                unique_identifier = 'unique_identifier'
+                odoo_columns = [unique_identifier if w == odoo_unique_identifier else w for w in odoo_columns]
+
+            else:
+                current_data_df = current_data_df.rename({odoo_unique_identifier : unique_identifier})
+                odoo_columns = [unique_identifier if w == odoo_unique_identifier else w for w in odoo_columns]
+            
+            
+            for col in odoo_columns:
+                # Handle tuple fields like 'course_id' by extracting the ID if it's a tuple ["53", "FRANCAIS DE BASE -  AT…"]
+                if current_data_df[col].dtype == pl.List:
+                    current_data_df = current_data_df.with_columns(
+                        pl.col(col).map_elements(lambda x: x[0] if (x is not None and len(x) > 1) else None, skip_nulls=False).cast(pl.Int64).alias(col)
+                    )
+                # Handle the case where the dataframe is set to bolean and should not
+                if current_data_df[col].dtype == pl.Boolean:
+                    current_data_df = self.odoo_to_polars(current_data_df, col)
+                if col in dataframe.columns and col in current_data_df.columns:
+                    try:
+                        dataframe = dataframe.with_columns(pl.col(col).cast(current_data_df[col].dtype))
+                    except Exception as e:
+                        _logger.warning(f"Data type alignment issue on column {col}: {e}")
+                        return dataframe      
+                    
+            def sort_exisiting_list(lst):
+                    return str([(6, 0, sorted(lst))])
+            # Helper function to add a hashed 'record_hash' column to a DataFrame
+            def add_record_hash(df, columns, object_column, seed=42):   
+                if object_column:
+                    df = df.with_columns(pl.col(object_column).map_elements(lambda x: sort_exisiting_list(x[0][2])))
+                
+                hash_df = df.with_columns(
+                    [pl.col(col).fill_null(strategy="zero") for col in columns]
+                )
+                
+                hash_df = hash_df.with_columns(
+                    pl.concat_str(columns, separator="-")  # Concatenate columns as strings
+                    .hash(seed=seed)                       # Apply hash with a seed
+                    .cast(pl.Utf8)                         # Convert hash to a string
+                    .alias("record_hash")                  # Name the new column
+                )
+                
+                return df.with_columns(hash_df["record_hash"])
+            
+            # Apply the function to add 'record_hash' to both DataFrames
+            current_data_df = add_record_hash(current_data_df, odoo_columns, object_column)
+
+            dataframe = add_record_hash(dataframe, odoo_columns, object_column)
+            
+            # Check if each hash in dataframe exists in current_data_df
+            dataframe2 = dataframe.with_columns(
+                (pl.col('record_hash').is_in(current_data_df['record_hash'])).alias('exists_in_odoo')
+            )
+
+            df_filtered = dataframe2.filter(pl.col('exists_in_odoo') == False).clone()
+            
+
+
+            
+
+            # Drop the auxiliary columns used for hashing if they are no longer needed
+            df_filtered = df_filtered.drop(['record_hash', 'exists_in_odoo'])
+
+            # If object_colmun, make sure to convert it back so that it can be used by odoo
+            if object_column:
+                df_filtered = df_filtered.with_columns(pl.col(object_column).map_elements(lambda x: eval(x), return_dtype=pl.Object))
+               
+            if unique_identifier == 'unique_identifier':
+                df_filtered = df_filtered.rename({'unique_identifier' : 'id'})
+            return df_filtered
+        
+    
+    def export_table_records(self):
+        pass
+    
+
+            
+    def import_model(self, odoo_name=None, name=None, **kwargs):
+        """Helper function to search and import records."""
+        domain = []
+        if odoo_name:
+            self.odoo_name = odoo_name.strip()
+            domain.append(("odoo_name", "=", odoo_name))
+        if name:
+            self.name = name.strip()
+            domain.append(("name", "=", name))
+        model = self.env["etl.model"].search(domain, limit=1)
+        if model:
+            model.import_table_records(**kwargs)
+
+    

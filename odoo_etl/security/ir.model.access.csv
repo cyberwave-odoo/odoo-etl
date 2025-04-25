@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+oodoo_etl.access_etl_model,access_etl_model,odoo_etl.model_etl_model,base.group_system,1,1,1,1

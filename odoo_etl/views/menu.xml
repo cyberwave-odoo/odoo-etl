@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem
+        id="import_root_menu"
+        name="Data Import"
+        sequence="2"/>
+        
+    <menuitem id="menu_etl" name="ETL" sequence="1" parent="import_root_menu" />
+    <menuitem id="menu_etl_model" name="ETL Models" parent="menu_etl" action="action_etl_model"/>
+
+
+
+
+    <menuitem
+        id="cron_menu"
+        name="Cron Jobs"
+        parent="import_root_menu" 
+        sequence="10"/>
+    <menuitem
+        id="cron_scheduled_action"
+        name="Scheduled Actions"
+        action="base.ir_cron_act"
+        parent="cron_menu" 
+        sequence="10"/>
+    <menuitem
+        id="cron_scheduled_action_triggers"
+        name="Scheduled Actions Triggers"
+        action="base.ir_cron_trigger_action"
+        parent="cron_menu" 
+        sequence="10"/>
+    <menuitem
+        id="db_source_menu"
+        name="External Db Sources"
+        sequence="10"
+        action="base_external_dbsource.action_dbsource"
+        parent="menu_etl"
+        />
+    <menuitem
+        id="data_import_config_menu"
+        name="Configuration"
+        sequence="99"
+        parent="import_root_menu"/>
+
+
+</odoo>
