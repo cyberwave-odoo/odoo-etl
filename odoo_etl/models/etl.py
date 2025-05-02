@@ -45,6 +45,7 @@ class ETLModel(models.Model):
     
     pre_exec = fields.Boolean('Pre Execution', default = False)
     
+    dbsource_id = fields.Many2one('base.external.dbsource', string='Database Source', required=True, default=lambda self: self.env['base.external.dbsource'].search([], limit=1))
     
     def systematic_import(self):
         return {}
@@ -177,7 +178,7 @@ class ETLModel(models.Model):
                 schema[name] = option if key == 'data_type' else None
         return schema
     @api.model
-    def get_sqlit_column_types(self, dbsource):
+    def get_sqlite_column_types(self, dbsource):
         data = dbsource.execute_sqlite(text(f"PRAGMA table_info({self.name});"), (), metadata=False)[0]
         utils = self.env['polars.sql.type.mapper']
         column_types = {row[1]: utils._get_polars_type(row[2]) for row in data}
@@ -186,7 +187,10 @@ class ETLModel(models.Model):
     @api.model
     def execute_query(self, sql_query, sql_params, metadata=True, sqlite_guess=True):
         
-        dbsource = self.env['base.external.dbsource'].search([('name', '=', 'SQLite Prod')], limit=1)
+        dbsource = self.dbsource_id
+        if not dbsource:
+            dbsource = self.env['base.external.dbsource'].search([], limit=1)
+            
         """Fetches all records from the adequate table."""
         try:
             offset = 0
@@ -210,7 +214,7 @@ class ETLModel(models.Model):
                     datarray = [list(tuple_item) for tuple_item in data]
 
                     if sqlite_guess:
-                        schema = self.get_sqlit_column_types(dbsource)
+                        schema = self.get_sqlite_column_types(dbsource)
 
                         batch_df = pl.DataFrame(datarray, schema=schema, orient="row", infer_schema_length=batch_size)
                     else:
@@ -236,7 +240,7 @@ class ETLModel(models.Model):
             # Concatenate all batches into a single DataFrame
             if metadata:
                 if len(all_batches) == 0:
-                    raise ValueError(f"{self.name}:{self.odoo_name} might be empty in the")
+                    raise ValueError(f"{self.name}:{self.odoo_name} might be empty ")
                 final_df = pl.concat(all_batches)
                 return final_df
             else:
@@ -328,7 +332,7 @@ class ETLModel(models.Model):
             )
             unique_identifier = 'external_id'
 
-        df = data.select(unique_identifier).clone()
+        df = data.select([pl.col(unique_identifier)])
         odoo_columns = []
 
         for odoo_field, mapping in field_mapping.items():
@@ -407,66 +411,65 @@ class ETLModel(models.Model):
             else:
                 _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")        
         filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier)
-        
         _logger.info(filtered_df)
-        # Convert data to a list of dictionaries
-        record_dicts = filtered_df.to_dicts()
+
+
+        existing_df = pl.DataFrame(
+            self.env[self.odoo_name].search_read([], [odoo_unique_identifier, 'id']), infer_schema_length=10000
+        )
+
+        if existing_df.is_empty():
+            records_to_create = filtered_df
+            records_to_update = pl.DataFrame()
+            
+        else:
+            merged = filtered_df.join(
+                existing_df,
+                left_on=unique_identifier,
+                right_on=odoo_unique_identifier,
+                how="left"
+            )
+
+            new_records = merged.filter(pl.col(odoo_unique_identifier).is_null())
+            existing_records = merged.filter(pl.col(odoo_unique_identifier).is_not_null())
+            records_to_create = new_records.drop("id")
+            records_to_update = existing_records
+            
+        drop_unique_id = unique_identifier not in self.env[self.odoo_name].fields_get() 
+        if drop_unique_id:
+            records_to_create = records_to_create.drop(unique_identifier)
+            records_to_update = records_to_update.drop(unique_identifier)
         
-        identifiers = [record[unique_identifier] for record in record_dicts if record[unique_identifier]]
-        existing_records = self.env[self.odoo_name].search_read([(odoo_unique_identifier, 'in', identifiers)], [odoo_unique_identifier], order='id')
-        existing_records_dict = {str(record[odoo_unique_identifier]): record['id'] for record in existing_records}
-
-        drop_unique_id = unique_identifier not in self.env[self.odoo_name].fields_get()
-
-        # Prepare bulk data
-        records_to_create = []
-        records_to_update = []
-        
-        for record in record_dicts:
-            if not record[unique_identifier]:
-                _logger.warning(f"Skipping a record because it has no {unique_identifier}: %s", record)
-            record_vals = {key: val for key, val in record.items() if key != unique_identifier} if drop_unique_id else {key: val for key, val in record.items()}
-            if str(record[unique_identifier]) in existing_records_dict:
-                # Prepare update data
-                records_to_update.append((existing_records_dict[str(record[unique_identifier])], record_vals))
-            else:
-                # Prepare create data
-                records_to_create.append(record_vals)
-
-        # Bulk create and write operations
         _logger.info("Time to prepare data= %s seconds", time.time() - kwargs['start_time'])
-        
+        _logger.info("Start ORM Import")
+
         failed_create = 0
         failed_update = 0
-        _logger.info(f"Start ORM Import")
-        # Handling record creation (attempt batch creation first)
-        if records_to_create:
-            record_by_record = True
-            if self.bulk_import:
-                if self.create_records_in_batch(records_to_create):
-                    record_by_record = False
-                        
-            if record_by_record:
-                # Batch creation failed, attempt individual creation
-                max_exceptions = 400
-                for record in records_to_create:
-                    success, max_exceptions = self.create_record(record, max_exceptions)
-                    if not success:
-                        failed_create += 1
-                    if max_exceptions == 0:
-                        _logger.error("Maximum number of exceptions reached during record creation.")
-                        break
+        max_errors = 400
+        if self.bulk_import and len(records_to_create) > 0:
+            error_records = self.create_records_in_batch(records_to_create)
+            for record in error_records.iter_rows(named=True):
+                success = self.create_record(record)
+                if not success:
+                    failed_create += 1
+        else:
+            for record in records_to_create.iter_rows(named=True):
+                success = self.create_record(record)
+                if not success:
+                    failed_create += 1
+                if failed_create >= max_errors:
+                    _logger.error("Max errors reached, stopping import")
+                    break
 
-        # Handling record updates individually
-        for record_id, values in records_to_update:
-
+        for row in records_to_update.iter_rows(named=True):
+            record_id = row['id']
+            values = {k: v for k, v in row.items() if k != 'id'}
             if not self.update_record(record_id, values):
-                
                 failed_update += 1
 
-        return len(df), len(records_to_create) - failed_create, len(records_to_update) - failed_update 
+        return len(df), len(records_to_create) - failed_create, len(records_to_update) - failed_update
 
-    def create_record(self, record, max_exceptions):
+    def create_record(self, record):
         try:
             with self.env.cr.savepoint():
                 self.env[self.odoo_name].with_context(tracking_disable=True).create(record)
@@ -474,21 +477,34 @@ class ETLModel(models.Model):
         except Exception as ex:
             _logger.error(f"Error details: {ex}")
 
-            return False, max_exceptions - 1  # Reduce exception count
-        return True, max_exceptions  # Creation successful, no reduction in exceptions
+            return False  # Reduce exception count
+        return True  # Creation successful, no reduction in exceptions
 
     # Function to handle batch record creation
-    def create_records_in_batch(self, records):
-        try:
-            with self.env.cr.savepoint():
-                self.env[self.odoo_name].with_context(tracking_disable=True).create(records)
+    def create_records_in_batch(self, records: pl.DataFrame, batch_size: int = 5000):
+        errored_batches = []
 
-                return True
-        except Exception as ex:
+        num_rows = records.height
+        for start in range(0, num_rows, batch_size):
+            _logger.info(f"Creating records from {start} to {start + batch_size}")
+            end = min(start + batch_size, num_rows)
+            batch_df = records.slice(start, end - start)
 
-            _logger.error(f"Batch creation failed for records")
-            _logger.error(f"Error details: {ex}")
-            return False
+            try:
+                with self.env.cr.savepoint():
+                    self.env[self.odoo_name].with_context(tracking_disable=True).create(batch_df.to_dicts())
+            except Exception as ex:
+                _logger.error(f"Batch creation failed for rows {start} to {end}")
+                _logger.error(f"Error details: {ex}")
+                errored_batches.append(batch_df)
+
+        if errored_batches:
+            error_df = pl.concat(errored_batches)
+            return error_df
+        else:
+            return pl.DataFrame()
+
+
 
     # Function to handle individual record updates with error tracking
     def update_record(self, record_id, values):
