@@ -110,6 +110,10 @@ Make sure to clone and include this repository in your Odoo addons path.
 - Configure external database connections and field mappings.
 - Run import/export jobs to synchronize data.
 
+## Need Help with Integration?
+
+If you need assistance with integrating this ETL solution into your Odoo environment or have specific requirements, feel free to reach out to us. Visit [Cyberwave Contact Us](https://www.cyberwave.be/contactus) for professional support and guidance.
+
 ## Contributing
 
 Contributions are welcome! Please follow these steps:
