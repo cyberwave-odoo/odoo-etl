@@ -38,5 +38,6 @@
         'web.assets_backend': [
             'odoo_etl/static/src/*/*',
         ],
-    }
+    },
+    'images': ['static/description/icon.png'],
 }

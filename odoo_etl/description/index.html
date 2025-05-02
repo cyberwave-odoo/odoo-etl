@@ -1,0 +1,74 @@
+<section class="oe_container">
+  <div class="oe_row oe_spaced">
+    <h1 class="oe_slogan" style="color:#875A7B;">Odoo ETL Solution</h1>
+    <p class="oe_slogan mt-2">This module provides an ETL (Extract, Transform, Load) solution for Odoo, enabling seamless data import, transformation, and synchronization between external databases and Odoo models. It is designed to handle complex data mappings and transformations efficiently.</p>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan" style="color:#875A7B;">Features</h2>
+    <ul class="oe_slogan">
+      <li>Define and manage ETL processes for various Odoo models.</li>
+      <li>Efficient data manipulation and transformation using Polars.</li>
+      <li>Support for SQLite and other external databases.</li>
+      <li>Customizable import logic for specific use cases.</li>
+      <li>Batch processing for large datasets.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan" style="color:#875A7B;">Getting Started</h2>
+    <p class="oe_slogan">Follow these steps to set up and use the ETL module:</p>
+    <ol class="oe_slogan">
+      <li>Install the Odoo module and its dependencies.</li>
+      <li>Define ETL models in Odoo, specifying field mappings and transformation logic.</li>
+      <li>Trigger the import process to synchronize data between external databases and Odoo.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan" style="color:#875A7B;">Example Field Mapping</h2>
+    <p class="oe_slogan">Here is an example of how fields can be mapped between an external table and an Odoo model:</p>
+    <pre class="oe_slogan">
+{
+  "name": {"type": "column", "column_name": "external_name"},
+  "email": {"type": "lambda", "function": lambda self, row, **kwargs: row["email"].lower()},
+  "country_id": {
+    "type": "join",
+    "lookup_table": "res.country",
+    "left_on": "country_code",
+    "right_on": "code",
+    "model_field": "id"
+  }
+}
+    </pre>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan" style="color:#875A7B;">Pro Tips</h2>
+    <ul class="oe_slogan">
+      <li>Ensure data privacy by using secure communication protocols (e.g., HTTPS, TLS).</li>
+      <li>Follow legal regulations when handling sensitive data, such as personal identifiers.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan" style="color:#875A7B;">More Documentation</h2>
+    <p class="oe_slogan">For detailed documentation, visit the <a href="https://github.com/cyberwave-odoo/odoo-etl" target="_blank">README</a> of the official GitHub repository.</p>
+  </div>
+</section>
+
+<section class="oe_container mt-4">
+  <div class="oe_row oe_spaced">
+    <h2 class="oe_slogan text-center">Happy ETLing! 🚀</h2>
+  </div>
+</section>
