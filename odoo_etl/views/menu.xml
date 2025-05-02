@@ -3,7 +3,7 @@
 
     <menuitem
         id="import_root_menu"
-        name="Data Import"
+        name="ETL"
         sequence="2"/>
         
     <menuitem id="menu_etl" name="ETL" sequence="1" parent="import_root_menu" />
