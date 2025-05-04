@@ -1,1 +1,3 @@
 *.pyc
+odoo_etl_example/db/db/customers.db
+odoo_etl_example/db/db/customers.db
