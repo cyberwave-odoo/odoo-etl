@@ -436,8 +436,8 @@ class ETLModel(models.Model):
             
         drop_unique_id = unique_identifier not in self.env[self.odoo_name].fields_get() 
         if drop_unique_id:
-            records_to_create = records_to_create.drop(unique_identifier)
-            records_to_update = records_to_update.drop(unique_identifier)
+            records_to_create = records_to_create.drop(unique_identifier, strict=False)
+            records_to_update = records_to_update.drop(unique_identifier, strict=False)
         
         _logger.info("Time to prepare data= %s seconds", time.time() - kwargs['start_time'])
         _logger.info("Start ORM Import")
