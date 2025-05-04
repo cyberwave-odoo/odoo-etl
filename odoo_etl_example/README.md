@@ -6,7 +6,7 @@ This module provides a practical example of using the ETL functionality to impor
 
 To generate the sample SQLite database, run:
 ```bash
-python odoo_etl_example/demo/create_sample_db.py
+python odoo_etl_example/db/create_sample_db.py
 ```
 
 ## Field Mapping Explanation
