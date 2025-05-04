@@ -429,9 +429,8 @@ class ETLModel(models.Model):
                 right_on=odoo_unique_identifier,
                 how="left"
             )
-
-            new_records = merged.filter(pl.col(odoo_unique_identifier).is_null())
-            existing_records = merged.filter(pl.col(odoo_unique_identifier).is_not_null())
+            new_records = merged.filter(pl.col("id").is_null())
+            existing_records = merged.filter(pl.col("id").is_not_null())
             records_to_create = new_records.drop("id")
             records_to_update = existing_records
             
@@ -452,6 +451,9 @@ class ETLModel(models.Model):
                 success = self.create_record(record)
                 if not success:
                     failed_create += 1
+                if failed_create >= max_errors:
+                    _logger.error("Max errors reached, stopping import")
+                    break
         else:
             for record in records_to_create.iter_rows(named=True):
                 success = self.create_record(record)
