@@ -107,11 +107,11 @@ class ETLModel(models.Model):
         total_records, new_records, updated_records = 0, 0, 0
         last_import_time = fields.datetime.now()
         
-        if self.pre_exec: 
+        if self.pre_exec == True: 
             _logger.info("Sart pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
             self.env[self.odoo_name].pre_exec(**kwargs)
             _logger.info("End pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
-        if self.custom_import:
+        if self.custom_import == True:
             _logger.info("Sart custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
             self.env[self.odoo_name].custom_import()
             _logger.info("End custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
