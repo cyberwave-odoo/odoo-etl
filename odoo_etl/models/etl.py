@@ -251,7 +251,7 @@ class ETLModel(models.Model):
             raise e
         
     @api.model
-    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=30000):
+    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=10000):
         """
         Load records in batches of a specified size and process them.
         
@@ -423,6 +423,7 @@ class ETLModel(models.Model):
             records_to_update = pl.DataFrame()
             
         else:
+
             merged = filtered_df.join(
                 existing_df,
                 left_on=unique_identifier,
