@@ -302,9 +302,8 @@ class ETLModel(models.Model):
             
         if len(all_batches) == 0:
             return pl.DataFrame()
-        
         # Concatenate all batches into a single DataFrame
-        final_dataframe = pl.concat(all_batches)
+        final_dataframe = pl.concat(all_batches,how="vertical_relaxed")
         # Return the processed dataframe
         return final_dataframe
     
