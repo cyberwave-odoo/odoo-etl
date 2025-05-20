@@ -251,7 +251,7 @@ class ETLModel(models.Model):
             raise e
         
     @api.model
-    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=10000):
+    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=5000):
         """
         Load records in batches of a specified size and process them.
         
