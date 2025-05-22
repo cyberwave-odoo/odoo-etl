@@ -276,7 +276,7 @@ class ETLModel(models.Model):
 
         while True:
             # Fetch records in batches using offset and limit
-            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
+            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id', infer_schema_length=batch_size)
             
             # Break loop if no more records are found
             if not current_data_records:
@@ -288,7 +288,7 @@ class ETLModel(models.Model):
 
             # Process records to replace False values in tuple fields with None
             for record in current_data_records:
-                for field in tuple_fields + many2one_fields +date_fields:
+                for field in tuple_fields + many2one_fields + date_fields:
                     if record[field] is False:
                         record[field] = None
 
@@ -413,9 +413,7 @@ class ETLModel(models.Model):
         _logger.info(filtered_df)
 
 
-        existing_df = pl.DataFrame(
-            self.env[self.odoo_name].search_read([], [odoo_unique_identifier, 'id']), infer_schema_length=10000
-        )
+        existing_df = self.load_records_in_batches( self.odoo_name, [odoo_unique_identifier, 'id'], batch_size=5000)
 
         if existing_df.is_empty():
             records_to_create = filtered_df
