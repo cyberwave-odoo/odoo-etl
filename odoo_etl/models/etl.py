@@ -276,7 +276,7 @@ class ETLModel(models.Model):
 
         while True:
             # Fetch records in batches using offset and limit
-            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id', infer_schema_length=batch_size)
+            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
             
             # Break loop if no more records are found
             if not current_data_records:
