@@ -420,7 +420,9 @@ class ETLModel(models.Model):
             records_to_update = pl.DataFrame()
             
         else:
-
+            existing_df = existing_df.with_columns(
+                pl.col(odoo_unique_identifier).cast(filtered_df.schema[unique_identifier]).alias(odoo_unique_identifier)
+            )
             merged = filtered_df.join(
                 existing_df,
                 left_on=unique_identifier,
@@ -580,6 +582,8 @@ class ETLModel(models.Model):
                 odoo_columns = [unique_identifier if w == odoo_unique_identifier else w for w in odoo_columns]
 
             else:
+                if current_data_df[odoo_unique_identifier].dtype == pl.Boolean:
+                    current_data_df = self.odoo_to_polars(current_data_df, odoo_unique_identifier)
                 current_data_df = current_data_df.rename({odoo_unique_identifier : unique_identifier})
                 odoo_columns = [unique_identifier if w == odoo_unique_identifier else w for w in odoo_columns]
             
