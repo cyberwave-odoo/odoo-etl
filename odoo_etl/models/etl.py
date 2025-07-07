@@ -113,7 +113,7 @@ class ETLModel(models.Model):
             _logger.info("End pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
         if self.custom_import == True:
             _logger.info("Sart custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
-            self.env[self.odoo_name].custom_import()
+            self.env[self.odoo_name].custom_import(**kwargs)
             _logger.info("End custom_import for '%s'  and legacy %s", self.odoo_name, self.name)
         else:      
             try:     
