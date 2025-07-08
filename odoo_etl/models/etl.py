@@ -253,7 +253,7 @@ class ETLModel(models.Model):
             raise e
         
     @api.model
-    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=2000):
+    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=5000):
         """
         Load records in batches of a specified size and process them.
         
@@ -305,7 +305,7 @@ class ETLModel(models.Model):
         if len(all_batches) == 0:
             return pl.DataFrame()
         # Concatenate all batches into a single DataFrame
-        final_dataframe = pl.concat(all_batches,how="vertical_relaxed")
+        final_dataframe = pl.concat(all_batches, how="vertical_relaxed")
         # Return the processed dataframe
         return final_dataframe
     
