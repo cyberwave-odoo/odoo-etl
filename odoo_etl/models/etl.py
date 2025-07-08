@@ -659,7 +659,7 @@ class ETLModel(models.Model):
     
 
             
-    def import_model(self, odoo_name=None, name=None, **kwargs):
+    def import_model(self, odoo_name=None, name=None, dbsource_id=None, **kwargs):
         """Helper function to search and import records."""
         domain = []
         if odoo_name:
@@ -668,6 +668,8 @@ class ETLModel(models.Model):
         if name:
             self.name = name.strip()
             domain.append(("name", "=", name))
+        if dbsource_id:
+            domain.append(('dbsource_id', '=', dbsource_id))
         model = self.env["etl.model"].search(domain, limit=1)
         if model:
             model.import_table_records(**kwargs)
