@@ -98,7 +98,7 @@ class ETLModel(models.Model):
         if not self.odoo_name or not self.name:
             _logger.info("Model not found")
             raise 
-        _logger.info("Start import odoo: %s and external: %s", self.odoo_name, self.name)
+        _logger.info("Start import odoo table: %s and external table: %s (source: %s)", self.odoo_name, self.name, self.dbsource_id.name)
 
         start = time.time()
 
