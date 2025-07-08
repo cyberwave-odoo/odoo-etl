@@ -47,6 +47,8 @@ class ETLModel(models.Model):
     
     dbsource_id = fields.Many2one('base.external.dbsource', string='Database Source', required=True, default=lambda self: self.env['base.external.dbsource'].search([], limit=1))
     
+    enabled = fields.Boolean('Job Enabled', default = False)
+    
     def systematic_import(self):
         return {}
 
