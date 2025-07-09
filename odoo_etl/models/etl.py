@@ -39,6 +39,8 @@ class ETLModel(models.Model):
     
     remove_condition = fields.Char('Remove Condition')
     
+    filter_odoo_condition = fields.Char('Filter Odoo Condition')
+    
     bulk_import = fields.Boolean('Bulk Import', default = False)
     
     custom_import = fields.Boolean('Custom Import', default = False)
@@ -278,7 +280,8 @@ class ETLModel(models.Model):
 
         while True:
             # Fetch records in batches using offset and limit
-            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
+            domain = eval(self.filter_odoo_condition) if self.filter_odoo_condition else []
+            current_data_records = self.env[odoo_name].search_read(domain, odoo_columns, offset=offset, limit=batch_size, order='id')
             
             # Break loop if no more records are found
             if not current_data_records:
