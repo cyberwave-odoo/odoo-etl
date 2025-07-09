@@ -37,7 +37,7 @@ class ETLModel(models.Model):
     unique_identifier_tuple = fields.Char('Unique identifier Tuple')
     
     
-    remove_condition = fields.Char('Remove Condition')
+    remove_condition = fields.Char('Remove Condition') 
     
     filter_odoo_condition = fields.Char('Filter Odoo Condition')
     
@@ -255,7 +255,7 @@ class ETLModel(models.Model):
             raise e
         
     @api.model
-    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=5000):
+    def load_records_in_batches(self, odoo_name, odoo_columns, batch_size=5000, **kwargs):
         """
         Load records in batches of a specified size and process them.
         
@@ -414,11 +414,11 @@ class ETLModel(models.Model):
                 
             else:
                 _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")        
-        filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier)
+        filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier, **kwargs)
         _logger.info(filtered_df)
 
 
-        existing_df = self.load_records_in_batches( self.odoo_name, [odoo_unique_identifier, 'id'], batch_size=5000)
+        existing_df = self.load_records_in_batches( self.odoo_name, [odoo_unique_identifier, 'id'], batch_size=5000, **kwargs)
 
         if existing_df.is_empty():
             records_to_create = filtered_df
@@ -548,9 +548,9 @@ class ETLModel(models.Model):
     def remove_false(self,df):
         return df.with_columns(pl.col(pl.String).replace("false", None))
              
-    def hash_compare(self, dataframe, odoo_columns, unique_identifier, odoo_unique_identifier):
+    def hash_compare(self, dataframe, odoo_columns, unique_identifier, odoo_unique_identifier, **kwargs):
 
-        current_data_df = self.load_records_in_batches(self.odoo_name, odoo_columns)
+        current_data_df = self.load_records_in_batches(self.odoo_name, odoo_columns, **kwargs)
 
         if current_data_df.is_empty():
             return dataframe
