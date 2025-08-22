@@ -426,6 +426,10 @@ class ETLModel(models.Model):
             records_to_update = pl.DataFrame()
             
         else:
+            if unique_identifier == "id":
+                filtered_df = filtered_df.rename({"id": "id_left"})
+                unique_identifier = "id_left"
+
             existing_df = existing_df.with_columns(
                 pl.col(odoo_unique_identifier).cast(filtered_df.schema[unique_identifier]).alias(odoo_unique_identifier)
             )
@@ -488,7 +492,7 @@ class ETLModel(models.Model):
                 self.env[self.odoo_name].with_context(tracking_disable=True).create(record)
                 
         except Exception as ex:
-            _logger.error(f"Error details: {ex}")
+            _logger.error(f"Error details create: {ex}")
 
             return False  # Reduce exception count
         return True  # Creation successful, no reduction in exceptions
@@ -508,7 +512,7 @@ class ETLModel(models.Model):
                     self.env[self.odoo_name].with_context(tracking_disable=True).create(batch_df.to_dicts())
             except Exception as ex:
                 _logger.error(f"Batch creation failed for rows {start} to {end}")
-                _logger.error(f"Error details: {ex}")
+                _logger.error(f"Error details batch create: {ex}")
                 errored_batches.append(batch_df)
 
         if errored_batches:
@@ -526,7 +530,7 @@ class ETLModel(models.Model):
                 self.env[self.odoo_name].browse(record_id).with_context(tracking_disable=True).write(values)
 
         except Exception as ex:
-            _logger.error(f"Error details: {ex}")
+            _logger.error(f"Error details update: {ex}")
 
             return False
         return True

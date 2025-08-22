@@ -12,7 +12,6 @@
                 <field name="total_imported_rec"/>
                 <field name="updated_imported_rec"/>
                 <field name="new_imported_rec" />
-                <field name="arguments" />
                 <field name="dbsource_id" />
                 <field name="dry_run" />
                 <button name="call_model_import" type="object" string="Import Records" class="oe_highlight"/>
