@@ -39,7 +39,6 @@ class ETLModel(models.Model):
     
     remove_condition = fields.Char('Remove Condition') 
     
-    filter_odoo_condition = fields.Char('Filter Odoo Condition')
     
     bulk_import = fields.Boolean('Bulk Import', default = False)
     
@@ -50,6 +49,8 @@ class ETLModel(models.Model):
     dbsource_id = fields.Many2one('base.external.dbsource', string='Database Source', required=True, default=lambda self: self.env['base.external.dbsource'].search([], limit=1))
     
     enabled = fields.Boolean('Job Enabled', default = False)
+    
+    dry_run = fields.Boolean('Dry Run', default = False, help="If enabled, the import will not create or update any records in Odoo.")
     
     def systematic_import(self):
         return {}
@@ -245,7 +246,7 @@ class ETLModel(models.Model):
             if metadata:
                 if len(all_batches) == 0:
                     raise ValueError(f"{self.name}:{self.odoo_name} might be empty ")
-                final_df = pl.concat(all_batches)
+                final_df = pl.concat(all_batches, how="vertical_relaxed")
                 return final_df
             else:
                 return
@@ -445,6 +446,11 @@ class ETLModel(models.Model):
             records_to_update = records_to_update.drop(unique_identifier, strict=False)
         
         _logger.info("Time to prepare data= %s seconds", time.time() - kwargs['start_time'])
+        
+        if self.dry_run:
+            _logger.info("Dry run enabled, skipping actual import.")
+            return len(filtered_df), 0, 0
+        
         _logger.info("Start ORM Import")
 
         failed_create = 0
