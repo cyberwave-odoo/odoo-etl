@@ -6,7 +6,6 @@
             <tree string="ETL Models">
                 <field name="name"/>
                 <field name="odoo_name" />
-                <field name="dbsource_id"/>
                 <field name="unique_identifier_tuple" />
                 <field name="elapsed_time_import" />
                 <field name="last_import" />
