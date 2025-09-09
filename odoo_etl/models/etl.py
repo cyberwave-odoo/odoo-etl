@@ -194,7 +194,7 @@ class ETLModel(models.Model):
         
         dbsource = self.dbsource_id
         if not dbsource:
-            dbsource = self.env['base.external.dbsource'].search([], limit=1)
+            raise ValueError("Database source not defined.")
             
         """Fetches all records from the adequate table."""
         try:
