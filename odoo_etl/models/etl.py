@@ -11,6 +11,12 @@ warnings.filterwarnings("ignore", category=pl.exceptions.PolarsInefficientMapWar
 
 _logger = logging.getLogger(__name__)
 
+import psutil, os
+
+def log_memory(tag=""):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / 1024 ** 2
+    _logger.debug(f"[MEMORY] {tag} - {mem:.2f} MB")
         
 class ETLModel(models.Model):
     _name = 'etl.model'
@@ -277,10 +283,10 @@ class ETLModel(models.Model):
         tuple_fields = [field for field, info in fields_info.items() if info['type'] == 'many2many']
         int_fields = [field for field, info in fields_info.items() if info['type'] == 'integer'] 
         many2one_fields = [field for field, info in fields_info.items() if info['type'] == 'many2one'] 
-        date_fields = [field for field, info in fields_info.items() if info['type'] == 'date'] 
-
+        date_fields = [field for field, info in fields_info.items() if info['type'] == 'date']         
         while True:
             # Fetch records in batches using offset and limit
+            log_memory(f"Loading batch with offset {offset}")
             current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
             
             # Break loop if no more records are found
@@ -300,17 +306,14 @@ class ETLModel(models.Model):
             # Convert the batch into a Polars DataFrame
             
             batch_df = pl.DataFrame(current_data_records, strict=False, infer_schema_length=batch_size)
-            all_batches.append(batch_df)
+            batch_df.write_parquet(f"batch_{offset}.parquet")
 
             # Move to the next batch
             offset += batch_size
             
-        if len(all_batches) == 0:
-            return pl.DataFrame()
-        # Concatenate all batches into a single DataFrame
-        final_dataframe = pl.concat(all_batches, how="vertical_relaxed")
-        # Return the processed dataframe
-        return final_dataframe
+        final_df = pl.scan_parquet("batch_*.parquet").collect()
+        log_memory("Concatenating all batches")
+        return final_df
     
     @api.model
     def import_records(self, data, unique_identifier_tuple, field_mapping, **kwargs):
@@ -414,13 +417,13 @@ class ETLModel(models.Model):
                 pass
                 
             else:
-                _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")        
+                _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")      
         filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier, **kwargs)
         _logger.info(filtered_df)
 
 
         existing_df = self.load_records_in_batches( self.odoo_name, [odoo_unique_identifier, 'id'], batch_size=5000, **kwargs)
-
+        log_memory(f"Existing df")
         if existing_df.is_empty():
             records_to_create = filtered_df
             records_to_update = pl.DataFrame()
