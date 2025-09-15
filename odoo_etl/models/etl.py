@@ -362,8 +362,15 @@ class ETLModel(models.Model):
         self.env.clear()
         self.env.registry.clear_caches()
         
-        final_df = pl.scan_parquet(path, allow_missing_columns=True).collect(streaming=True)
-        for file in glob.glob(path):
+        files = glob.glob(path)
+
+        if files:  # ✅ at least one parquet file exists
+            final_df = pl.scan_parquet(path, allow_missing_columns=True).collect(streaming=True)
+            # cleanup
+        else:
+            # no parquet files → empty dataframe
+            final_df = pl.DataFrame()
+        for file in files:
             os.remove(file)
         log_memory("Concatenating all batches")
         return final_df
