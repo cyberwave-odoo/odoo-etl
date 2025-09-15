@@ -4,8 +4,12 @@ from datetime import datetime
 import logging
 from sqlalchemy import create_engine, text
 import polars as pl
-
+import os
+import glob
+import gc
 import warnings
+from collections import Counter, defaultdict
+
 warnings.filterwarnings("ignore", category=pl.exceptions.MapWithoutReturnDtypeWarning)
 warnings.filterwarnings("ignore", category=pl.exceptions.PolarsInefficientMapWarning)
 
@@ -276,7 +280,6 @@ class ETLModel(models.Model):
             Polars DataFrame containing all records.
         """
         offset = 0          # Initialize offset
-        all_batches = []    # List to store batches
         
         fields_info = self.env[odoo_name].fields_get(odoo_columns)
         boolean_fields = [field for field, info in fields_info.items() if info['type'] == 'boolean']
@@ -284,6 +287,9 @@ class ETLModel(models.Model):
         int_fields = [field for field, info in fields_info.items() if info['type'] == 'integer'] 
         many2one_fields = [field for field, info in fields_info.items() if info['type'] == 'many2one'] 
         date_fields = [field for field, info in fields_info.items() if info['type'] == 'date']         
+        
+        dtype_counts = defaultdict(Counter)
+        
         while True:
             # Fetch records in batches using offset and limit
             log_memory(f"Loading batch with offset {offset}")
@@ -306,12 +312,59 @@ class ETLModel(models.Model):
             # Convert the batch into a Polars DataFrame
             
             batch_df = pl.DataFrame(current_data_records, strict=False, infer_schema_length=batch_size)
-            batch_df.write_parquet(f"batch_{offset}.parquet")
-
+            for col, dtype in zip(batch_df.columns, batch_df.dtypes):
+                dtype_counts[col][dtype] += 1
+            batch_df.write_parquet(f"/tmp/batch_{offset}.parquet")
             # Move to the next batch
             offset += batch_size
+
+            self.env.clear()
+
+
+        placeholder_types = [pl.Boolean, pl.Null, pl.Unknown]
+
+        final_dtypes = {}
+        for col, counter in dtype_counts.items():
+            # Start with the most common type
+            most_common_type, _ = counter.most_common(1)[0]
+            # If it's a placeholder type, try to find a "real" type
+            if most_common_type in placeholder_types:
+                
+                for dtype in counter:
+                    if dtype not in placeholder_types:
+                        most_common_type = dtype
+                        break
+
+            final_dtypes[col] = most_common_type
             
-        final_df = pl.scan_parquet("batch_*.parquet").collect()
+        print(final_dtypes)
+        path = "/tmp/batch_*.parquet"
+        for file in glob.glob(path):
+            df = pl.read_parquet(file)
+            # repaint columns with final_dtypes
+            for col, dtype in final_dtypes.items():
+                if col in df.columns:
+                    if col in date_fields:
+                   
+                        df = df.with_columns(
+                            pl.when(pl.col(col).is_null())
+                            .then(None)
+                            .otherwise(pl.col(col))
+                            .cast(pl.Date)
+                            .alias(col)
+                        )
+                    else:
+                        df = df.with_columns(pl.col(col).cast(dtype))
+            # overwrite the parquet file with fixed schema
+            df.write_parquet(file)
+
+        gc.collect()
+        self.env.clear()
+        self.env.registry.clear_caches()
+        
+        final_df = pl.scan_parquet(path, allow_missing_columns=True).collect(streaming=True)
+        for file in glob.glob(path):
+            os.remove(file)
         log_memory("Concatenating all batches")
         return final_df
     
@@ -417,7 +470,9 @@ class ETLModel(models.Model):
                 pass
                 
             else:
-                _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")      
+                _logger.error(f"Unsupported mapping type for field '{odoo_field}': {type(mapping)}")    
+                
+        # TODO use the existing_df as input in the filtered df to now call load_records_in_batches twice  
         filtered_df = self.hash_compare(df.clone(), odoo_columns, unique_identifier, odoo_unique_identifier, **kwargs)
         _logger.info(filtered_df)
 
