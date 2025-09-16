@@ -360,7 +360,7 @@ class ETLModel(models.Model):
 
         gc.collect()
         self.env.clear()
-        self.env.registry.clear_caches()
+
         
         files = glob.glob(path)
 
