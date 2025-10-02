@@ -122,16 +122,5 @@
         </field>
     </record>
 
-    <record id="action_etl_mapping_wizard" model="ir.actions.act_window">
-        <field name="name">Generate ETL Mapping</field>
-        <field name="res_model">etl.mapping.wizard</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
-    </record>
 
-    <menuitem id="menu_etl_mapping_wizard"
-              name="Generate Mapping"
-              parent="menu_etl"
-              action="action_etl_mapping_wizard"
-              sequence="5"/>
 </odoo>

@@ -161,8 +161,13 @@ class ETLMappingWizard(models.TransientModel):
                     lines.append(f"    '{line.odoo_field}': {{")
                     lines.append(f"        'type': 'lambda',")
                     # Lambda must be executable code, not a string
-                    # Clean up the lambda function - remove trailing commas
-                    lambda_str = line.lambda_function.strip().rstrip(',')
+                    # Clean up the lambda function - remove trailing commas and 'function': prefix if present
+                    lambda_str = line.lambda_function.strip().rstrip(',').strip()
+                    # Remove 'function': prefix if user accidentally included it
+                    if lambda_str.startswith("'function':"):
+                        lambda_str = lambda_str[11:].strip()
+                    elif lambda_str.startswith('"function":'):
+                        lambda_str = lambda_str[11:].strip()
                     lines.append(f"        'function': {lambda_str},")
                     if line.data_type:
                         lines.append(f"        'data_type': '{line.data_type}',")
