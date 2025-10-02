@@ -27,8 +27,7 @@
         'security/ir.model.access.csv',
         'views/etl_view.xml',
         'views/menu.xml',
-        
-        
+        'wizard/etl_mapping_wizard_views.xml',
     ],
     # only loaded in demonstration mode
     'demo': [

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_etl_mapping_wizard_form" model="ir.ui.view">
+        <field name="name">etl.mapping.wizard.form</field>
+        <field name="model">etl.mapping.wizard</field>
+        <field name="arch" type="xml">
+            <form string="ETL Mapping Generator">
+                <sheet>
+                    <group states="select">
+                        <group>
+                            <field name="state" invisible="1"/>
+                            <field name="dbsource_id"/>
+                            <field name="legacy_table_name" placeholder="e.g., classes"/>
+                            <field name="odoo_model_name" placeholder="e.g., op.batch"/>
+                        </group>
+                        <group>
+                            <field name="unique_identifier_tuple" placeholder="e.g., ('code', ('no_classe','year'))"/>
+                            <field name="custom_import"/>
+                            <field name="pre_exec"/>
+                            <field name="bulk_import"/>
+                            <field name="dry_run"/>
+                        </group>
+                    </group>
+
+                    <group states="select">
+                        <field name="arguments" placeholder="start_date = ... | end_date = ..."/>
+                        <field name="remove_condition" placeholder="pl.col('active') == True"/>
+                    </group>
+
+                    <notebook states="map,review">
+                        <page string="Field Mappings">
+                            <field name="mapping_line_ids" nolabel="1" context="{'default_wizard_id': id}">
+                                <tree>
+                                    <field name="odoo_field"/>
+                                    <field name="mapping_type"/>
+                                    <field name="legacy_column"/>
+                                    <field name="data_type"/>
+                                </tree>
+                                <form>
+                                    <sheet>
+                                        <group>
+                                            <field name="wizard_id" invisible="1"/>
+                                            <field name="odoo_field"/>
+                                            <field name="mapping_type"/>
+                                            <field name="data_type" placeholder="e.g., pl.Int64, pl.Utf8"/>
+                                        </group>
+
+                                        <group string="Column Mapping" attrs="{'invisible': [('mapping_type', '!=', 'column')]}">
+                                            <field name="legacy_column" attrs="{'required': [('mapping_type', '=', 'column')]}"/>
+                                        </group>
+
+                                        <separator string="Lambda Function" attrs="{'invisible': [('mapping_type', '!=', 'lambda')]}"/>
+                                        <field name="lambda_function" widget="text" nolabel="1" placeholder="lambda self, record, **kwargs: record['field_name']" attrs="{'invisible': [('mapping_type', '!=', 'lambda')], 'required': [('mapping_type', '=', 'lambda')]}"/>
+
+                                        <group string="Join/Lookup Configuration" attrs="{'invisible': [('mapping_type', '!=', 'join')]}">
+                                            <group>
+                                                <field name="join_lookup_table" placeholder="e.g., op.course" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
+                                                <field name="join_left_on" placeholder="Legacy column name" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
+                                            </group>
+                                            <group>
+                                                <field name="join_right_on" placeholder="Odoo field name" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
+                                                <field name="join_model_field" placeholder="Optional model field"/>
+                                            </group>
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Configuration">
+                            <group>
+                                <group>
+                                    <field name="dbsource_id" readonly="1"/>
+                                    <field name="legacy_table_name" readonly="1"/>
+                                    <field name="odoo_model_name" readonly="1"/>
+                                    <field name="unique_identifier_tuple"/>
+                                </group>
+                                <group>
+                                    <field name="custom_import"/>
+                                    <field name="pre_exec"/>
+                                    <field name="bulk_import"/>
+                                    <field name="dry_run"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="arguments"/>
+                                <field name="remove_condition"/>
+                            </group>
+                        </page>
+                    </notebook>
+
+                    <group states="select">
+                        <div class="alert alert-info" role="alert">
+                            <strong>Instructions:</strong>
+                            <ol>
+                                <li>Select the database source containing your legacy data</li>
+                                <li>Enter the legacy table name (e.g., "classes")</li>
+                                <li>Enter the Odoo model name (e.g., "op.batch")</li>
+                                <li>Configure the unique identifier tuple and other options</li>
+                                <li>Click "Load Columns" to proceed to field mapping</li>
+                            </ol>
+                        </div>
+                    </group>
+
+                    <div states="map" class="alert alert-info" role="alert" style="margin: 16px;">
+                        <strong>Field Mapping:</strong>
+                        <ul>
+                            <li><strong>Direct Column:</strong> Map directly to a legacy column</li>
+                            <li><strong>Lambda Function:</strong> Use a Python lambda for custom transformation</li>
+                            <li><strong>Join/Lookup:</strong> Perform a lookup on another Odoo table</li>
+                        </ul>
+                        <p>Configure the mapping for each Odoo field, then click "Generate ETL Model"</p>
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_load_columns" string="Load Columns" type="object"
+                            class="btn-primary" states="select"/>
+                    <button name="action_generate_mapping" string="Generate ETL Model" type="object"
+                            class="btn-primary" states="map,review"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_etl_mapping_wizard" model="ir.actions.act_window">
+        <field name="name">Generate ETL Mapping</field>
+        <field name="res_model">etl.mapping.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_etl_mapping_wizard"
+              name="Generate Mapping"
+              parent="menu_etl"
+              action="action_etl_mapping_wizard"
+              sequence="5"/>
+</odoo>

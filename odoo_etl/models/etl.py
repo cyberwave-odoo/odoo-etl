@@ -99,13 +99,153 @@ class ETLModel(models.Model):
         self.ensure_one()
         _logger.info(self.name)
         _logger.info("Export record for %s", str(self.name))
-        
+
         try:
             self.odoo_name = self.odoo_name.strip()
             self.export_table_records()
         except Exception as e:
             _logger.error("An error occurred while exporting %s: %s", self.name, e)
             raise
+
+    def action_open_mapping_wizard(self):
+        """Open the mapping wizard with current ETL model data"""
+        self.ensure_one()
+
+        wizard = self.env['etl.mapping.wizard'].create({
+            'etl_model_id': self.id,
+            'dbsource_id': self.dbsource_id.id,
+            'legacy_table_name': self.name,
+            'odoo_model_name': self.odoo_name,
+            'unique_identifier_tuple': self.unique_identifier_tuple or '',
+            'arguments': self.arguments or '',
+            'remove_condition': self.remove_condition or '',
+            'custom_import': self.custom_import,
+            'pre_exec': self.pre_exec,
+            'bulk_import': self.bulk_import,
+            'dry_run': self.dry_run,
+        })
+
+        # Populate transient records for Selection dropdowns BEFORE parsing JSON
+        if self.odoo_name and self.odoo_name in self.env:
+            odoo_fields = self.env[self.odoo_name].fields_get()
+            for field_name, field_info in sorted(odoo_fields.items()):
+                self.env['etl.mapping.wizard.odoo.field'].create({
+                    'wizard_id': wizard.id,
+                    'field_name': field_name,
+                    'field_label': field_info.get('string', field_name),
+                })
+
+        if self.name and self.dbsource_id:
+            try:
+                legacy_columns = wizard._get_legacy_table_columns(self.name)
+                for column in legacy_columns:
+                    self.env['etl.mapping.wizard.legacy.column'].create({
+                        'wizard_id': wizard.id,
+                        'column_name': column,
+                    })
+            except Exception as e:
+                _logger.warning("Could not fetch legacy columns: %s", e)
+
+        # Parse existing field mapping and create wizard lines
+        if self.field_mapping:
+            try:
+                import re
+
+                field_mapping_text = self.field_mapping
+                field_mapping = eval(field_mapping_text)
+
+                for odoo_field, mapping_config in field_mapping.items():
+                    line_vals = {
+                        'wizard_id': wizard.id,
+                        'odoo_field': odoo_field,
+                    }
+
+                    mapping_type = mapping_config.get('type', 'column')
+                    line_vals['mapping_type'] = mapping_type
+
+                    if mapping_type == 'column':
+                        line_vals['legacy_column'] = mapping_config.get('column_name', '')
+
+                    elif mapping_type == 'lambda':
+                        # Extract lambda code from the raw text
+                        lambda_str = self._extract_lambda_from_text(field_mapping_text, odoo_field)
+                        line_vals['lambda_function'] = lambda_str
+
+                    elif mapping_type == 'join':
+                        line_vals['join_lookup_table'] = mapping_config.get('lookup_table', '')
+                        line_vals['join_left_on'] = mapping_config.get('left_on', '')
+                        line_vals['join_right_on'] = mapping_config.get('right_on', '')
+                        line_vals['join_model_field'] = mapping_config.get('model_field', '')
+
+                    if 'data_type' in mapping_config:
+                        line_vals['data_type'] = mapping_config.get('data_type', '')
+
+                    self.env['etl.mapping.wizard.line'].with_context(default_wizard_id=wizard.id).create(line_vals)
+
+                wizard.write({'state': 'map'})
+
+            except Exception as e:
+                _logger.error("Error parsing field mapping: %s", e, exc_info=True)
+                raise
+
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Edit Field Mapping',
+            'res_model': 'etl.mapping.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
+    @api.model
+    def _extract_lambda_from_text(self, field_mapping_text, odoo_field):
+        """Extract lambda function code from field mapping text"""
+        import re
+
+        escaped_field = re.escape(odoo_field)
+        func_pattern = rf"'{escaped_field}':\s*\{{[^}}]*'function':\s*(lambda\s)"
+        func_match = re.search(func_pattern, field_mapping_text, re.DOTALL)
+
+        if not func_match:
+            return "lambda self, record, **kwargs: ..."
+
+        start_pos = func_match.start(1)
+        text_from_lambda = field_mapping_text[start_pos:]
+
+        # Balance parentheses/brackets to find lambda end
+        depth = 0
+        in_string = False
+        string_char = None
+        end_pos = 0
+
+        for i, char in enumerate(text_from_lambda):
+            if char in ['"', "'"]:
+                if not in_string:
+                    in_string = True
+                    string_char = char
+                elif char == string_char and (i == 0 or text_from_lambda[i-1] != '\\'):
+                    in_string = False
+                    string_char = None
+                continue
+
+            if in_string:
+                continue
+
+            if char in '([{':
+                depth += 1
+            elif char in ')]}':
+                depth -= 1
+
+            if depth == 0 and i > 10:
+                remaining = text_from_lambda[i:i+5]
+                if re.match(r',\s*[\'"}]', remaining) or re.match(r'\s*}', remaining):
+                    end_pos = i
+                    break
+
+        if end_pos > 0:
+            return text_from_lambda[:end_pos].strip().rstrip(',').strip()
+
+        return "lambda self, record, **kwargs: ..."
             
     def import_table_records(self,**kwargs):
         if not self.odoo_name or not self.name:

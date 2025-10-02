@@ -1,2 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 oodoo_etl.access_etl_model,access_etl_model,odoo_etl.model_etl_model,base.group_system,1,1,1,1
+odoo_etl.access_etl_mapping_wizard,access_etl_mapping_wizard,odoo_etl.model_etl_mapping_wizard,base.group_system,1,1,1,1
+odoo_etl.access_etl_mapping_wizard_line,access_etl_mapping_wizard_line,odoo_etl.model_etl_mapping_wizard_line,base.group_system,1,1,1,1
+odoo_etl.access_etl_mapping_wizard_odoo_field,access_etl_mapping_wizard_odoo_field,odoo_etl.model_etl_mapping_wizard_odoo_field,base.group_system,1,1,1,1
+odoo_etl.access_etl_mapping_wizard_legacy_column,access_etl_mapping_wizard_legacy_column,odoo_etl.model_etl_mapping_wizard_legacy_column,base.group_system,1,1,1,1

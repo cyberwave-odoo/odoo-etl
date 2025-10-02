@@ -28,6 +28,7 @@
                 <header>
                     <button name="call_model_import" type="object" string="Import Records" class="oe_highlight"/>
                     <button name="call_model_export" type="object" string="Export Records" class="oe_highlight"/>
+                    <button name="action_open_mapping_wizard" type="object" string="Edit Mapping" class="btn-secondary"/>
                 </header>
                 <sheet>
                     <group>
