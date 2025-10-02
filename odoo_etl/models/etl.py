@@ -141,7 +141,7 @@ class ETLModel(models.Model):
                 for column in legacy_columns:
                     self.env['etl.mapping.wizard.legacy.column'].create({
                         'wizard_id': wizard.id,
-                        'column_name': column,
+                        'column_name': column.lower(),
                     })
             except Exception as e:
                 _logger.warning("Could not fetch legacy columns: %s", e)
@@ -164,7 +164,7 @@ class ETLModel(models.Model):
                     line_vals['mapping_type'] = mapping_type
 
                     if mapping_type == 'column':
-                        line_vals['legacy_column'] = mapping_config.get('column_name', '')
+                        line_vals['legacy_column'] = mapping_config.get('column_name', '').lower()
 
                     elif mapping_type == 'lambda':
                         # Extract lambda code from the raw text
@@ -179,7 +179,7 @@ class ETLModel(models.Model):
 
                     if 'data_type' in mapping_config:
                         line_vals['data_type'] = mapping_config.get('data_type', '')
-
+                    print(line_vals)
                     self.env['etl.mapping.wizard.line'].with_context(default_wizard_id=wizard.id).create(line_vals)
 
                 wizard.write({'state': 'map'})
