@@ -694,7 +694,7 @@ class ETLModel(models.Model):
     def create_record(self, record):
         try:
             with self.env.cr.savepoint():
-                self.env[self.odoo_name].with_context(tracking_disable=True).create(record)
+                self.env[self.odoo_name].with_context(tracking_disable=True, mail_notrack=True).create(record)
                 
         except Exception as ex:
             _logger.error(f"Error details create: {ex}")
@@ -714,7 +714,7 @@ class ETLModel(models.Model):
 
             try:
                 with self.env.cr.savepoint():
-                    self.env[self.odoo_name].with_context(tracking_disable=True).create(batch_df.to_dicts())
+                    self.env[self.odoo_name].with_context(tracking_disable=True, mail_notrack=True).create(batch_df.to_dicts())
             except Exception as ex:
                 _logger.error(f"Batch creation failed for rows {start} to {end}")
                 _logger.error(f"Error details batch create: {ex}")
@@ -732,7 +732,7 @@ class ETLModel(models.Model):
     def update_record(self, record_id, values):
         try:
             with self.env.cr.savepoint():
-                self.env[self.odoo_name].browse(record_id).with_context(tracking_disable=True).write(values)
+                self.env[self.odoo_name].browse(record_id).with_context(tracking_disable=True, mail_notrack=True).write(values)
 
         except Exception as ex:
             _logger.error(f"Error details update: {ex}")
