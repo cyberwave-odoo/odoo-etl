@@ -1,6 +1,6 @@
 <odoo>
     <data>
-        <record model="base.external.dbsource" id="epfc_sqlite">
+        <record model="base.external.dbsource" id="db_sqlite">
             <field name="name">SQLite</field>
             <field name="conn_string">sqlite:///C:\\Users\\cocol\\Documents\\BandIT\\odoo\\test.db</field>
             <field name="password" />
