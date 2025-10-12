@@ -28,7 +28,7 @@ class ETLModel(models.Model):
     
 
 
-    name = fields.Char(string='EPFC Table Name', required=True)
+    name = fields.Char(string='Legacy Table Name', required=True)
     odoo_name = fields.Char(string='Odoo Table Name')
     
     field_mapping = fields.Text('Field Mapping')
