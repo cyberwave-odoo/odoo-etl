@@ -8,6 +8,7 @@ import glob
 import gc
 import warnings
 from collections import Counter, defaultdict
+import tempfile
 
 warnings.filterwarnings("ignore", category=pl.exceptions.MapWithoutReturnDtypeWarning)
 warnings.filterwarnings("ignore", category=pl.exceptions.PolarsInefficientMapWarning)
@@ -418,6 +419,7 @@ class ETLModel(models.Model):
             Polars DataFrame containing all records.
         """
         offset = 0          # Initialize offset
+        temp_dir = tempfile.gettempdir()  # ✅ OS-agnostic temp folder
         
         fields_info = self.env[odoo_name].fields_get(odoo_columns)
         boolean_fields = [field for field, info in fields_info.items() if info['type'] == 'boolean']
@@ -452,7 +454,8 @@ class ETLModel(models.Model):
             batch_df = pl.DataFrame(current_data_records, strict=False, infer_schema_length=batch_size)
             for col, dtype in zip(batch_df.columns, batch_df.dtypes):
                 dtype_counts[col][dtype] += 1
-            batch_df.write_parquet(f"/tmp/batch_{offset}.parquet")
+            parquet_path = os.path.join(temp_dir, f"batch_{offset}.parquet")
+            batch_df.write_parquet(parquet_path)
             # Move to the next batch
             offset += batch_size
 
@@ -476,8 +479,11 @@ class ETLModel(models.Model):
             final_dtypes[col] = most_common_type
             
         print(final_dtypes)
-        path = "/tmp/batch_*.parquet"
-        for file in glob.glob(path):
+        # Use os.path.join for the directory, then add pattern for glob
+        pattern = os.path.join(temp_dir, "batch_*.parquet")
+        files = glob.glob(pattern)
+
+        for file in files:
             df = pl.read_parquet(file)
             # repaint columns with final_dtypes
             for col, dtype in final_dtypes.items():
@@ -499,11 +505,14 @@ class ETLModel(models.Model):
         gc.collect()
         self.env.clear()
 
-        
-        files = glob.glob(path)
+
+        # Re-glob to get all parquet files
+        files = glob.glob(pattern)
 
         if files:  # ✅ at least one parquet file exists
-            final_df = pl.scan_parquet(path, allow_missing_columns=True).collect(streaming=True)
+            # Read individual files and concatenate (more reliable than scan_parquet with patterns on Windows)
+            dfs = [pl.read_parquet(f) for f in files]
+            final_df = pl.concat(dfs, how="vertical_relaxed") if len(dfs) > 1 else dfs[0]
             # cleanup
         else:
             # no parquet files → empty dataframe
@@ -809,8 +818,17 @@ class ETLModel(models.Model):
             for col in odoo_columns:
                 # Handle tuple fields like 'course_id' by extracting the ID if it's a tuple ["53", "FRANCAIS DE BASE -  AT…"]
                 if current_data_df[col].dtype == pl.List:
+                    # Extract first element and convert to int (Odoo returns IDs as strings in lists)
+                    def extract_id(x):
+                        if x is None or len(x) == 0:
+                            return None
+                        try:
+                            return int(x[0]) if len(x) > 1 else None
+                        except (ValueError, TypeError):
+                            return None
+
                     current_data_df = current_data_df.with_columns(
-                        pl.col(col).map_elements(lambda x: x[0] if (x is not None and len(x) > 1) else None, skip_nulls=False).cast(pl.Int64).alias(col)
+                        pl.col(col).map_elements(extract_id, skip_nulls=False, return_dtype=pl.Int64).alias(col)
                     )
                 # Handle the case where the dataframe is set to bolean and should not
                 if current_data_df[col].dtype == pl.Boolean:
