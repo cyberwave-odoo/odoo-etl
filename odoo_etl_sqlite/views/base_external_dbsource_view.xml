@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_base_external_dbsource_form" model="ir.ui.view">
+        <field name="name">base.external.dbsource.form</field>
+        <field name="model">base.external.dbsource</field>
+        <field name="arch" type="xml">
+            <form string="External Database Source - SQLite">
+                <header>
+                    <button name="connection_test" string="Test Connection" type="object" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="e.g., Legacy Database"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="connector" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="password" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Connection">
+                            <group>
+                                <field name="conn_string" widget="text"
+                                       placeholder="Enter the full path to your SQLite database file&#10;&#10;Examples:&#10;  Linux/Mac: /home/user/data/database.db&#10;  Windows: C:\Users\user\data\database.db&#10;&#10;Or use SQLite URI format:&#10;  sqlite:///path/to/database.db"/>
+                            </group>
+                        </page>
+                        <page string="Help">
+                            <group>
+                                <div class="alert alert-info" role="alert">
+                                    <h4>SQLite Database Connection</h4>
+                                    <p>This module uses Python's built-in sqlite3 library to connect to SQLite databases.</p>
+                                    <h5>Connection String Format:</h5>
+                                    <ul>
+                                        <li><strong>Absolute path:</strong> <code>/path/to/database.db</code> or <code>C:\path\to\database.db</code></li>
+                                        <li><strong>SQLite URI:</strong> <code>sqlite:///path/to/database.db</code></li>
+                                    </ul>
+                                    <h5>Requirements:</h5>
+                                    <ul>
+                                        <li>The database file must exist and be accessible by the Odoo server</li>
+                                        <li>The Odoo process must have read permissions on the database file</li>
+                                        <li>No external dependencies required (uses Python standard library)</li>
+                                    </ul>
+                                </div>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_base_external_dbsource_list" model="ir.ui.view">
+        <field name="name">base.external.dbsource.list</field>
+        <field name="model">base.external.dbsource</field>
+        <field name="arch" type="xml">
+            <list string="External Database Sources">
+                <field name="name"/>
+                <field name="connector"/>
+                <field name="conn_string"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_base_external_dbsource_search" model="ir.ui.view">
+        <field name="name">base.external.dbsource.search</field>
+        <field name="model">base.external.dbsource</field>
+        <field name="arch" type="xml">
+            <search string="External Database Sources">
+                <field name="name"/>
+                <field name="connector"/>
+                <field name="conn_string"/>
+                <group expand="0" string="Group By">
+                    <filter string="Connector" name="group_by_connector" context="{'group_by':'connector'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_base_external_dbsource" model="ir.actions.act_window">
+        <field name="name">SQLite Database Sources</field>
+        <field name="res_model">base.external.dbsource</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new SQLite Database Source
+            </p>
+            <p>
+                Configure external SQLite database sources for ETL operations.
+                The database file must exist and be accessible by the Odoo server.
+            </p>
+        </field>
+    </record>
+
+</odoo>

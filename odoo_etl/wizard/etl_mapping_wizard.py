@@ -2,7 +2,6 @@ from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 import json
 import logging
-from sqlalchemy import text, inspect
 
 _logger = logging.getLogger(__name__)
 
@@ -117,18 +116,18 @@ class ETLMappingWizard(models.TransientModel):
         """Get columns from legacy database table"""
         dbsource = self.dbsource_id
 
+        # Use the dbsource's get_table_columns method if available
+        if hasattr(dbsource, 'get_table_columns'):
+            return dbsource.get_table_columns(table_name)
+
+        # Fallback to direct execute_sqlite for SQLite
         if dbsource.connector == 'sqlite':
-            # Use PRAGMA table_info for SQLite
-            data, cols = dbsource.execute_sqlite(text(f"PRAGMA table_info({table_name});"), (), metadata=True)
+            data, cols = dbsource.execute_sqlite(f"PRAGMA table_info({table_name});", (), metadata=True)
             # Column info is at index 1 of each row
             columns = [row[1] for row in data]
             return columns
-        else:
-            # For other databases, use SQLAlchemy inspector
-            engine = dbsource._get_engine()
-            inspector = inspect(engine)
-            columns = [col['name'] for col in inspector.get_columns(table_name)]
-            return columns
+
+        raise UserError(_('Unsupported database connector: %s') % dbsource.connector)
 
     def action_generate_mapping(self):
         """Generate JSON field mapping and create/update ETL model record"""

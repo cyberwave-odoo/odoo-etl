@@ -4,8 +4,7 @@
         <!-- SQLite Database Source -->
         <record model="base.external.dbsource" id="demo_sqlite">
             <field name="name">Demo SQLite</field>
-            <field name="conn_string">sqlite:///odoo-etl/odoo_etl_example/db/db/customers.db</field>
-            <field name="password" />
+            <field name="conn_string">C:\Users\cocol\Documents\BandIT\odoo\odoo-etl\odoo_etl_example\db\customers.db</field>
             <field name="connector">sqlite</field>
         </record>
 

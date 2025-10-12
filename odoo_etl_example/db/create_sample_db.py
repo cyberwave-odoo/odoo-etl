@@ -4,7 +4,7 @@ from datetime import datetime
 
 def create_sample_database():
     # Create the database directory if it doesn't exist
-    db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db/db')
+    db_dir = os.path.dirname(__file__)
     print(f"Creating database directory at: {db_dir}")
     os.makedirs(db_dir, exist_ok=True)
     

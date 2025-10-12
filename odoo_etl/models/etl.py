@@ -2,7 +2,6 @@ from odoo import _, api, fields, models
 import time
 from datetime import datetime
 import logging
-from sqlalchemy import create_engine, text
 import polars as pl
 import os
 import glob
@@ -28,7 +27,7 @@ class ETLModel(models.Model):
     
 
 
-    name = fields.Char(string='EPFC Table Name', required=True)
+    name = fields.Char(string='Legacy Table Name', required=True)
     odoo_name = fields.Char(string='Odoo Table Name')
     
     field_mapping = fields.Text('Field Mapping')
@@ -65,19 +64,18 @@ class ETLModel(models.Model):
     def systematic_import(self):
         return {}
 
-    @api.model
+    @api.model_create_multi
     def create(self, vals_list):
-        if isinstance(vals_list, list):
-            for vals in vals_list:
-                if 'odoo_name' in vals and isinstance(vals['odoo_name'], str):
-                    vals['odoo_name'] = vals['odoo_name'].strip()
-                if 'name' in vals and isinstance(vals['name'], str):
-                    vals['name'] = vals['name'].strip()
-        else:
-            if 'odoo_name' in vals_list and isinstance(vals_list['odoo_name'], str):
-                vals_list['odoo_name'] = vals_list['odoo_name'].strip()
-            if 'name' in vals_list and isinstance(vals_list['name'], str):
-                vals_list['name'] = vals_list['name'].strip()
+        # Normalize to list for uniform processing
+        if not isinstance(vals_list, list):
+            vals_list = [vals_list]
+
+        # Strip whitespace from string fields
+        for vals in vals_list:
+            if 'odoo_name' in vals and isinstance(vals['odoo_name'], str):
+                vals['odoo_name'] = vals['odoo_name'].strip()
+            if 'name' in vals and isinstance(vals['name'], str):
+                vals['name'] = vals['name'].strip()
 
         return super(ETLModel, self).create(vals_list)
     
@@ -258,9 +256,9 @@ class ETLModel(models.Model):
         
         kwargs = self.systematic_import()
         
-    
+
         total_records, new_records, updated_records = 0, 0, 0
-        last_import_time = fields.datetime.now()
+        last_import_time = fields.Datetime.now()
         
         if self.pre_exec == True: 
             _logger.info("Sart pre_exec for '%s'  and legacy %s", self.odoo_name, self.name)
@@ -334,7 +332,7 @@ class ETLModel(models.Model):
         return schema
     @api.model
     def get_sqlite_column_types(self, dbsource):
-        data = dbsource.execute_sqlite(text(f"PRAGMA table_info({self.name});"), (), metadata=False)[0]
+        data = dbsource.execute_sqlite(f"PRAGMA table_info({self.name});", (), metadata=False)[0]
         utils = self.env['polars.sql.type.mapper']
         column_types = {row[1]: utils._get_polars_type(row[2]) for row in data}
         return column_types
@@ -358,7 +356,7 @@ class ETLModel(models.Model):
                 else:
                     adapted_sql = sql_query
                 # Execute the SQL query
-                data, cols = dbsource.execute_sqlite(text(adapted_sql), sql_params, metadata)
+                data, cols = dbsource.execute_sqlite(adapted_sql, sql_params, metadata)
 
                 # Break the loop if no more records are found
                 if not data:

@@ -2,11 +2,11 @@
 <odoo>
 
     <menuitem
-        id="import_root_menu"
+        id="menu_etl_root"
         name="ETL"
         sequence="2"/>
-        
-    <menuitem id="menu_etl" name="ETL" sequence="1" parent="import_root_menu" />
+
+    <menuitem id="menu_etl" name="ETL" sequence="1" parent="menu_etl_root" />
     <menuitem id="menu_etl_model" name="ETL Models" parent="menu_etl" action="action_etl_model"/>
 
 
@@ -15,7 +15,7 @@
     <menuitem
         id="cron_menu"
         name="Cron Jobs"
-        parent="import_root_menu" 
+        parent="menu_etl_root"
         sequence="10"/>
     <menuitem
         id="cron_scheduled_action"
@@ -30,17 +30,17 @@
         parent="cron_menu" 
         sequence="10"/>
     <menuitem
-        id="db_source_menu"
-        name="External Db Sources"
-        sequence="10"
-        action="base_external_dbsource.action_dbsource"
-        parent="menu_etl"
-        />
-    <menuitem
         id="data_import_config_menu"
         name="Configuration"
         sequence="99"
-        parent="import_root_menu"/>
+        parent="menu_etl_root"/>
 
+    <!-- Link to Database Sources (if odoo_etl_sqlite is installed) -->
+    <menuitem
+        id="menu_etl_dbsources_link"
+        name="Database Sources"
+        action="odoo_etl_sqlite.action_base_external_dbsource"
+        parent="data_import_config_menu"
+        sequence="1"/>
 
 </odoo>

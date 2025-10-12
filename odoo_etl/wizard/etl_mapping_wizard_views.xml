@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="ETL Mapping Generator">
                 <sheet>
-                    <group states="select">
+                    <group invisible="state not in ['select']">
                         <group>
                             <field name="state" invisible="1"/>
                             <field name="dbsource_id"/>
@@ -22,20 +22,20 @@
                         </group>
                     </group>
 
-                    <group states="select">
+                    <group invisible="state not in ['select']">
                         <field name="arguments" placeholder="start_date = ... | end_date = ..."/>
                         <field name="remove_condition" placeholder="pl.col('active') == True"/>
                     </group>
 
-                    <notebook states="map,review">
+                    <notebook invisible="state not in ['map', 'review']">
                         <page string="Field Mappings">
                             <field name="mapping_line_ids" nolabel="1" context="{'default_wizard_id': id}">
-                                <tree>
+                                <list>
                                     <field name="odoo_field"/>
                                     <field name="mapping_type"/>
                                     <field name="legacy_column"/>
                                     <field name="data_type"/>
-                                </tree>
+                                </list>
                                 <form>
                                     <sheet>
                                         <group>
@@ -45,20 +45,26 @@
                                             <field name="data_type" placeholder="e.g., pl.Int64, pl.Utf8"/>
                                         </group>
 
-                                        <group string="Column Mapping" attrs="{'invisible': [('mapping_type', '!=', 'column')]}">
-                                            <field name="legacy_column" attrs="{'required': [('mapping_type', '=', 'column')]}"/>
+                                        <group string="Column Mapping" invisible="mapping_type != 'column'">
+                                            <field name="legacy_column" required="mapping_type == 'column'"/>
                                         </group>
 
-                                        <separator string="Lambda Function" attrs="{'invisible': [('mapping_type', '!=', 'lambda')]}"/>
-                                        <field name="lambda_function" widget="text" nolabel="1" placeholder="lambda self, record, **kwargs: record['field_name']" attrs="{'invisible': [('mapping_type', '!=', 'lambda')], 'required': [('mapping_type', '=', 'lambda')]}"/>
+                                        <separator string="Lambda Function" invisible="mapping_type != 'lambda'"/>
+                                        <field name="lambda_function" widget="text" nolabel="1"
+                                               placeholder="lambda self, record, **kwargs: record['field_name']"
+                                               invisible="mapping_type != 'lambda'"
+                                               required="mapping_type == 'lambda'"/>
 
-                                        <group string="Join/Lookup Configuration" attrs="{'invisible': [('mapping_type', '!=', 'join')]}">
+                                        <group string="Join/Lookup Configuration" invisible="mapping_type != 'join'">
                                             <group>
-                                                <field name="join_lookup_table" placeholder="e.g., op.course" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
-                                                <field name="join_left_on" placeholder="Legacy column name" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
+                                                <field name="join_lookup_table" placeholder="e.g., op.course"
+                                                       required="mapping_type == 'join'"/>
+                                                <field name="join_left_on" placeholder="Legacy column name"
+                                                       required="mapping_type == 'join'"/>
                                             </group>
                                             <group>
-                                                <field name="join_right_on" placeholder="Odoo field name" attrs="{'required': [('mapping_type', '=', 'join')]}"/>
+                                                <field name="join_right_on" placeholder="Odoo field name"
+                                                       required="mapping_type == 'join'"/>
                                                 <field name="join_model_field" placeholder="Optional model field"/>
                                             </group>
                                         </group>
@@ -88,7 +94,7 @@
                         </page>
                     </notebook>
 
-                    <group states="select">
+                    <group invisible="state not in ['select']">
                         <div class="alert alert-info" role="alert">
                             <strong>Instructions:</strong>
                             <ol>
@@ -101,7 +107,7 @@
                         </div>
                     </group>
 
-                    <div states="map" class="alert alert-info" role="alert" style="margin: 16px;">
+                    <div invisible="state not in ['map']" class="alert alert-info" role="alert" style="margin: 16px;">
                         <strong>Field Mapping:</strong>
                         <ul>
                             <li><strong>Direct Column:</strong> Map directly to a legacy column</li>
@@ -113,9 +119,9 @@
                 </sheet>
                 <footer>
                     <button name="action_load_columns" string="Load Columns" type="object"
-                            class="btn-primary" states="select"/>
+                            class="btn-primary" invisible="state not in ['select']"/>
                     <button name="action_generate_mapping" string="Generate ETL Model" type="object"
-                            class="btn-primary" states="map,review"/>
+                            class="btn-primary" invisible="state not in ['map', 'review']"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

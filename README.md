@@ -1,8 +1,8 @@
 # Odoo ETL Project
 
-![Odoo](https://img.shields.io/badge/Odoo-16.0-blue)
+![Odoo](https://img.shields.io/badge/Odoo-18.0-blue)
 ![License](https://img.shields.io/badge/License-AGPL--3-green)
-![Python](https://img.shields.io/badge/Python-3.9+-yellow)
+![Python](https://img.shields.io/badge/Python-3.10+-yellow)
 
 ## Overview
 

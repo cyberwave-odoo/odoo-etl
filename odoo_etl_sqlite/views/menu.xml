@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Root menu for Database Sources (standalone) -->
+    <menuitem id="menu_etl_sqlite_root"
+              name="ETL Database Sources"
+              sequence="100"/>
+
+    <!-- Database Sources menu item -->
+    <menuitem id="menu_base_external_dbsource"
+              name="Database Sources"
+              parent="menu_etl_sqlite_root"
+              action="action_base_external_dbsource"
+              sequence="5"/>
+</odoo>
