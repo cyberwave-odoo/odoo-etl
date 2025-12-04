@@ -433,7 +433,7 @@ class ETLModel(models.Model):
         while True:
             # Fetch records in batches using offset and limit
             log_memory(f"Loading batch with offset {offset}")
-            current_data_records = self.env[odoo_name].search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
+            current_data_records = self.env[odoo_name].with_context(active_test=False).search_read([], odoo_columns, offset=offset, limit=batch_size, order='id')
             
             # Break loop if no more records are found
             if not current_data_records:
@@ -588,7 +588,7 @@ class ETLModel(models.Model):
                     )
             elif mapping['type'] == 'join':
                 domain = mapping.get('filter') or []
-                lookup_data = self.env[mapping['lookup_table']].search(domain)
+                lookup_data = self.env[mapping['lookup_table']].with_context(active_test=False).search(domain)
                 right_on = mapping['right_on']
                 left_on = mapping['left_on']
                 
