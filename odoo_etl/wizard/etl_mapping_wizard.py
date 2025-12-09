@@ -24,6 +24,7 @@ class ETLMappingWizard(models.TransientModel):
     # Checkboxes
     custom_import = fields.Boolean(string='Custom Import', default=False)
     pre_exec = fields.Boolean(string='Pre Execution', default=False)
+    post_exec = fields.Boolean(string='Post Execution', default=False)
     bulk_import = fields.Boolean(string='Bulk Import', default=False)
     dry_run = fields.Boolean(string='Dry Run', default=False)
 
@@ -198,6 +199,7 @@ class ETLMappingWizard(models.TransientModel):
                 'remove_condition': self.remove_condition or '',
                 'custom_import': self.custom_import,
                 'pre_exec': self.pre_exec,
+                'post_exec': self.post_exec,
                 'bulk_import': self.bulk_import,
                 'dry_run': self.dry_run,
             }

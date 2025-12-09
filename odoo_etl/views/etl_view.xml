@@ -43,6 +43,7 @@
                             <field name="bulk_import"/>
                             <field name="custom_import"/>
                             <field name="pre_exec"/>
+                            <field name="post_exec"/>
                         </group>
                         
                         <field name="arguments" />

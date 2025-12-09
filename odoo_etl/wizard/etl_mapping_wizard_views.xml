@@ -17,6 +17,7 @@
                             <field name="unique_identifier_tuple" placeholder="e.g., ('code', ('no_classe','year'))"/>
                             <field name="custom_import"/>
                             <field name="pre_exec"/>
+                            <field name="post_exec"/>
                             <field name="bulk_import"/>
                             <field name="dry_run"/>
                         </group>
@@ -77,6 +78,7 @@
                                 <group>
                                     <field name="custom_import"/>
                                     <field name="pre_exec"/>
+                                    <field name="post_exec"/>
                                     <field name="bulk_import"/>
                                     <field name="dry_run"/>
                                 </group>
