@@ -817,7 +817,7 @@ class ETLModel(models.Model):
             
             for col in odoo_columns:
                 # Handle tuple fields like 'course_id' by extracting the ID if it's a tuple ["53", "FRANCAIS DE BASE -  AT…"]
-                if current_data_df[col].dtype == pl.List:
+                if current_data_df[col].dtype == pl.tree:
                     # Extract first element and convert to int (Odoo returns IDs as strings in lists)
                     def extract_id(x):
                         if x is None or len(x) == 0:
