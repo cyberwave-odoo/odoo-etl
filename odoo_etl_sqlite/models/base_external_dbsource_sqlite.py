@@ -20,7 +20,7 @@ class BaseExternalDbsource(models.Model):
                              help='Path to SQLite database file, e.g., /path/to/database.db or C:\\path\\to\\database.db')
     connector = fields.Selection([('sqlite', 'SQLite')], string='Connector', default='sqlite', required=True)
     password = fields.Char('Password')  # Not used for SQLite but kept for compatibility
-
+    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company)
     def _get_sqlite_path(self):
         """Extract and validate the SQLite database path from conn_string"""
         self.ensure_one()
@@ -84,6 +84,10 @@ class BaseExternalDbsource(models.Model):
 
             # Fetch results
             rows = cursor.fetchall()
+
+            # Commit if query modifies data
+            if query_str.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'DROP', 'ALTER')):
+                connection.commit()
 
             # Get column names if metadata requested
             cols = None
