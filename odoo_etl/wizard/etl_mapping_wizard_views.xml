@@ -30,12 +30,12 @@
                     <notebook invisible="state not in ['map', 'review']">
                         <page string="Field Mappings">
                             <field name="mapping_line_ids" nolabel="1" context="{'default_wizard_id': id}">
-                                <tree>
+                                <list>
                                     <field name="odoo_field"/>
                                     <field name="mapping_type"/>
                                     <field name="legacy_column"/>
                                     <field name="data_type"/>
-                                </tree>
+                                </list>
                                 <form>
                                     <sheet>
                                         <group>

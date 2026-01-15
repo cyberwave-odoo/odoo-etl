@@ -1,9 +1,9 @@
 <odoo> 
-    <record id="view_etl_tree" model="ir.ui.view">
-        <field name="name">etl.model.tree</field>
+    <record id="view_etl_list" model="ir.ui.view">
+        <field name="name">etl.model.list</field>
         <field name="model">etl.model</field>
         <field name="arch" type="xml">
-            <tree string="ETL Models">
+            <list string="ETL Models">
                 <field name="name"/>
                 <field name="odoo_name" />
                 <field name="unique_identifier_tuple" />
@@ -16,7 +16,7 @@
                 <field name="dry_run" />
                 <button name="call_model_import" type="object" string="Import Records" class="oe_highlight"/>
                 <button name="call_model_export" type="object" string="Export Records" class="oe_highlight"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -79,7 +79,7 @@
     <record id="action_etl_model" model="ir.actions.act_window">
         <field name="name">Default ETL Models Action</field>
         <field name="res_model">etl.model</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="context">{'search_default_order': 'name'}</field>
     </record>
 
