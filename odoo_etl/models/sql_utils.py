@@ -52,10 +52,10 @@ class PolarsSQLTypeMapper(models.AbstractModel):
         else:
             raise ValueError(f"Unsupported Polars dtype: {dtype} for {col}")
         
-    def _populate_sql_table(self, new_table_name, new_table):
+    def _populate_sql_table(self, new_table_name, new_table, etl_model):
         
         query = f"DROP TABLE IF EXISTS {new_table_name};"
-        self.env['etl.model'].execute_query(query, (), metadata=False, sqlite_guess=False)
+        etl_model.execute_query(query, (), metadata=False, sqlite_guess=False)
 
         # Generate CREATE TABLE statement dynamically based on Polars schema
         
@@ -70,7 +70,7 @@ class PolarsSQLTypeMapper(models.AbstractModel):
         );
         """
         
-        self.env['etl.model'].execute_query(create_table_query, (), metadata=False, sqlite_guess=False)
+        etl_model.execute_query(create_table_query, (), metadata=False, sqlite_guess=False)
 
         # Insert data into 'horaires_join'
         data = new_table.rows()
@@ -88,7 +88,7 @@ class PolarsSQLTypeMapper(models.AbstractModel):
             """
             
             # Execute the batch insert query
-            self.env['etl.model'].execute_query(insert_query, (), metadata=False, sqlite_guess=False)
+            etl_model.execute_query(insert_query, (), metadata=False, sqlite_guess=False)
 
         _logger.info(f"{new_table_name} table successfully populated with joined data.")
 
