@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': "odoo-etl",
+    'name': "Odoo ETL Framework (Extract, Transform, Load)",
 
     'summary': """
         Short (1 phrase/line) summary of the module's purpose, used as
@@ -26,6 +26,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/etl_view.xml',
+        'views/etl_log_view.xml',
         'views/menu.xml',
         'wizard/etl_mapping_wizard_views.xml',
     ],

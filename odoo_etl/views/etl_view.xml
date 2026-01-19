@@ -13,7 +13,7 @@
                 <field name="updated_imported_rec"/>
                 <field name="new_imported_rec" />
                 <field name="dbsource_id" />
-                <field name="dry_run" />
+                <field name="error_count" />
                 <button name="call_model_import" type="object" string="Import Records" class="oe_highlight"/>
                 <button name="call_model_export" type="object" string="Export Records" class="oe_highlight"/>
             </list>
@@ -31,6 +31,11 @@
                     <button name="action_open_mapping_wizard" type="object" string="Edit Mapping" class="btn-secondary"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_logs" type="object" class="oe_stat_button" icon="fa-list-alt">
+                            <field name="error_count" widget="statinfo" string="Errors"/>
+                        </button>
+                    </div>
                     <group>
                         <group >
                             <field name="name"/>

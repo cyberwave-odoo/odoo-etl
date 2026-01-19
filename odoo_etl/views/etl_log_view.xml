@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="etl_log_view_list" model="ir.ui.view">
+            <field name="name">etl.log.list</field>
+            <field name="model">etl.log</field>
+            <field name="arch" type="xml">
+                <list string="ETL Logs" decoration-danger="log_type=='error'" decoration-warning="log_type=='warning'">
+                    <field name="run_date"/>
+                    <field name="log_type"/>
+                    <field name="message"/>
+                    <field name="etl_model_id"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="etl_log_view_form" model="ir.ui.view">
+            <field name="name">etl.log.form</field>
+            <field name="model">etl.log</field>
+            <field name="arch" type="xml">
+                <form string="ETL Log">
+                    <sheet>
+                        <group>
+                            <field name="etl_model_id"/>
+                            <field name="run_date"/>
+                            <field name="log_type"/>
+                        </group>
+                        <group>
+                            <field name="message"/>
+                            <field name="record_data"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="etl_log_action" model="ir.actions.act_window">
+            <field name="name">ETL Logs</field>
+            <field name="res_model">etl.log</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+    </data>
+</odoo>

@@ -62,6 +62,30 @@ class ETLModel(models.Model):
     
     dry_run = fields.Boolean('Dry Run', default = False, help="If enabled, the import will not create or update any records in Odoo.")
     
+    log_ids = fields.One2many('etl.log', 'etl_model_id', string='Logs', readonly=True)
+    error_count = fields.Integer(string='Errors', compute='_compute_error_count', store=False) # store=False is better for this case.
+
+    @api.depends('log_ids')
+    def _compute_error_count(self):
+        for record in self:
+            record.error_count = self.env['etl.log'].search_count([
+                ('etl_model_id', '=', record.id),
+                ('log_type', '=', 'error')
+            ])
+
+    def action_view_logs(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('ETL Logs'),
+            'res_model': 'etl.log',
+            'view_mode': 'list,form',
+            'domain': [('etl_model_id', '=', self.id)],
+            'context': {
+                'default_etl_model_id': self.id,
+            }
+        }
+    
     def systematic_import(self):
         return {}
 
@@ -251,6 +275,8 @@ class ETLModel(models.Model):
             _logger.info("Model not found")
             raise 
         _logger.info("Start import odoo table: %s and external table: %s (source: %s)", self.odoo_name, self.name, self.dbsource_id.name)
+
+        self.log_ids.unlink()
 
         start = time.time()
 
@@ -702,14 +728,17 @@ class ETLModel(models.Model):
         try:
             with self.env.cr.savepoint():
                 self.env[self.odoo_name].with_context(tracking_disable=True, mail_notrack=True).create(record)
-                
         except Exception as ex:
             _logger.error(f"Error details create: {ex}")
+            self.env['etl.log'].create({
+                'etl_model_id': self.id,
+                'log_type': 'error',
+                'message': str(ex),
+                'record_data': str(record),
+            })
+            return False
+        return True
 
-            return False  # Reduce exception count
-        return True  # Creation successful, no reduction in exceptions
-
-    # Function to handle batch record creation
     def create_records_in_batch(self, records: pl.DataFrame, batch_size: int = 5000):
         errored_batches = []
 
@@ -725,6 +754,12 @@ class ETLModel(models.Model):
             except Exception as ex:
                 _logger.error(f"Batch creation failed for rows {start} to {end}")
                 _logger.error(f"Error details batch create: {ex}")
+                self.env['etl.log'].create({
+                    'etl_model_id': self.id,
+                    'log_type': 'error',
+                    'message': f"Batch creation failed: {ex}",
+                    'record_data': str(batch_df.to_dicts()),
+                })
                 errored_batches.append(batch_df)
 
         if errored_batches:
@@ -735,15 +770,18 @@ class ETLModel(models.Model):
 
 
 
-    # Function to handle individual record updates with error tracking
     def update_record(self, record_id, values):
         try:
             with self.env.cr.savepoint():
                 self.env[self.odoo_name].browse(record_id).with_context(tracking_disable=True, mail_notrack=True).write(values)
-
         except Exception as ex:
             _logger.error(f"Error details update: {ex}")
-
+            self.env['etl.log'].create({
+                'etl_model_id': self.id,
+                'log_type': 'error',
+                'message': str(ex),
+                'record_data': f"ID: {record_id}, Values: {values}",
+            })
             return False
         return True
 

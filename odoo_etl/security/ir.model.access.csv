@@ -4,3 +4,4 @@ odoo_etl.access_etl_mapping_wizard,access_etl_mapping_wizard,odoo_etl.model_etl_
 odoo_etl.access_etl_mapping_wizard_line,access_etl_mapping_wizard_line,odoo_etl.model_etl_mapping_wizard_line,base.group_system,1,1,1,1
 odoo_etl.access_etl_mapping_wizard_odoo_field,access_etl_mapping_wizard_odoo_field,odoo_etl.model_etl_mapping_wizard_odoo_field,base.group_system,1,1,1,1
 odoo_etl.access_etl_mapping_wizard_legacy_column,access_etl_mapping_wizard_legacy_column,odoo_etl.model_etl_mapping_wizard_legacy_column,base.group_system,1,1,1,1
+odoo_etl.access_etl_log,access_etl_log,odoo_etl.model_etl_log,base.group_system,1,1,1,1
