@@ -1,3 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_base_external_dbsource_user,base.external.dbsource.user,model_base_external_dbsource,base.group_user,1,0,0,0
 access_base_external_dbsource_manager,base.external.dbsource.manager,model_base_external_dbsource,base.group_system,1,1,1,1
