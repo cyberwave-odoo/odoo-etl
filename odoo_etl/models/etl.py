@@ -301,6 +301,11 @@ class ETLModel(models.Model):
             except Exception as e:
                 _logger.error("An error occurred, make sure you have imported the ETL models: %s", str(e))
                 raise e
+            
+            if data is None or data.is_empty():
+                _logger.warning("No data returned for table: %s", self.name)
+                return
+
             data.columns = [col.lower() for col in data.columns]
 
         
@@ -420,7 +425,7 @@ class ETLModel(models.Model):
             # Concatenate all batches into a single DataFrame
             if metadata:
                 if len(all_batches) == 0:
-                    raise ValueError(f"{self.name}:{self.odoo_name} might be empty ")
+                    return pl.DataFrame(schema=cols)
                 final_df = pl.concat(all_batches, how="vertical_relaxed")
                 return final_df
             else:
