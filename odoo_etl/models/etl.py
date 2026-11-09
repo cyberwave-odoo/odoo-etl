@@ -55,7 +55,7 @@ class ETLModel(models.Model):
     custom_import = fields.Boolean('Custom Import', default = False)
     
     pre_exec = fields.Boolean('Pre Execution', default = False)
-    post_exec = fields.Boolean('Pre Execution', default = False)
+    post_exec = fields.Boolean('Post Execution', default = False)
     
     dbsource_id = fields.Many2one('base.external.dbsource', string='Database Source', required=True, default=lambda self: self.env['base.external.dbsource'].search([], limit=1))
     
