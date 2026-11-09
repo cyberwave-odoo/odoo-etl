@@ -55,6 +55,7 @@ class ETLModel(models.Model):
     custom_import = fields.Boolean('Custom Import', default = False)
     
     pre_exec = fields.Boolean('Pre Execution', default = False)
+    post_exec = fields.Boolean('Pre Execution', default = False)
     
     dbsource_id = fields.Many2one('base.external.dbsource', string='Database Source', required=True, default=lambda self: self.env['base.external.dbsource'].search([], limit=1))
     
@@ -338,7 +339,11 @@ class ETLModel(models.Model):
             
             total_records, new_records, updated_records = self.import_records(data, unique_identifier_tuple, field_mapping, **kwargs)
             
-
+        if self.post_exec == True:
+            _logger.info("Start post_exec for '%s' and legacy %s", self.odoo_name, self.name)
+            self.env[self.odoo_name].post_exec(**kwargs)
+            _logger.info("End post_exec for '%s' and legacy %s", self.odoo_name, self.name)
+            
         end = time.time()
         
         duration = end-start
